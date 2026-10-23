@@ -1,0 +1,12 @@
+fastapi
+uvicorn
+httpx
+aiofiles
+sqlalchemy
+python-multipart
+websockets
+firebase-admin
+pyjwt
+passlib[bcrypt]
+mercadopago
+stripe

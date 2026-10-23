@@ -1,0 +1,14 @@
+.env
+firebase-key.json
+cache/
+*.db
+*.db-journal
+__pycache__/
+*.py[cod]
+venv/
+env/
+.venv/
+uploads/
+.DS_Store
+Thumbs.db
+*.log

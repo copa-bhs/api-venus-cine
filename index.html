@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vênus Cine · Admin</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    * { box-sizing: border-box; }
+    body { background: #0a0a0a; color: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0a0a0a; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    .pulse { animation: pulse 1.6s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+    .sidebar-link.active { background: rgba(229,9,20,.12); color: #E50914; border-left: 3px solid #E50914; }
+    .sidebar-link:hover:not(.active) { background: rgba(255,255,255,.04); }
+    .stat-card { background: linear-gradient(135deg, #141414 0%, #0f0f0f 100%); border: 1px solid #262626; }
+    .toast-slide { animation: slideIn .3s ease; }
+    @keyframes slideIn { from { transform: translateX(400px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .input-dark { width: 100%; height: 40px; padding: 0 12px; background: #0a0a0a; border: 1px solid #262626; border-radius: 8px; color: #fff; font-size: 14px; outline: none; transition: 0.2s; }
+    .input-dark:focus { border-color: #E50914; }
+    textarea.input-dark { height: auto; padding: 10px 12px; resize: vertical; }
+    .template-btn { padding: 12px 10px; border-radius: 8px; background: #1a1a1a; border: 1px solid #333; font-size: 12px; font-weight: bold; cursor: pointer; transition: 0.2s; display: flex; flex-direction: column; align-items: center; gap: 6px; color: #ccc; }
+    .template-btn:hover { border-color: #E50914; color: #fff; background: #222; }
+    .template-btn.active { background: rgba(229,9,20,0.1); border-color: #E50914; color: #E50914; }
+    .custom-checkbox { width: 20px; height: 20px; accent-color: #22c55e; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<div class="flex min-h-screen">
+    <aside id="sidebar" class="w-60 bg-[#0f0f0f] border-r border-[#262626] flex flex-col fixed lg:static inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform">
+        <div class="p-4 border-b border-[#262626]">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl font-black italic text-red-600" style="text-shadow:0 0 12px rgba(229,9,20,.7)">V</span>
+                <div>
+                    <div class="text-sm font-bold">Vênus Cine</div>
+                    <div class="text-[10px] text-gray-500">Painel Admin</div>
+                </div>
+            </div>
+        </div>
+
+        <nav class="flex-1 py-3 overflow-y-auto">
+            <a href="#dashboard" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="dashboard"><i class="fa-solid fa-gauge w-4 text-center"></i> Dashboard</a>
+            <a href="#clientes" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="clientes"><i class="fa-solid fa-user-tie w-4 text-center"></i> Clientes</a>
+            <a href="#faturamento_admin" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="faturamento_admin"><i class="fa-solid fa-file-invoice-dollar w-4 text-center"></i> Faturamento</a>
+            <a href="#pedidos" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="pedidos"><i class="fa-solid fa-inbox w-4 text-center"></i> Pedidos <span id="badge-pedidos" class="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-red-600 text-white font-bold hidden">0</span></a>
+            <a href="#usuarios" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="usuarios"><i class="fa-solid fa-users w-4 text-center"></i> Usuários App</a>
+            <a href="#iptv" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="iptv"><i class="fa-solid fa-magnifying-glass w-4 text-center"></i> IPTV Direto</a>
+            <a href="#notificacoes" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="notificacoes"><i class="fa-solid fa-bell w-4 text-center"></i> Notificações</a>
+            <a href="#slider" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="slider"><i class="fa-solid fa-images w-4 text-center"></i> Slider</a>
+            <a href="#filmes" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="filmes"><i class="fa-solid fa-film w-4 text-center"></i> Filmes</a>
+            <a href="#series" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="series"><i class="fa-solid fa-tv w-4 text-center"></i> Séries</a>
+            <a href="#canais" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="canais"><i class="fa-solid fa-satellite-dish w-4 text-center"></i> Canais</a>
+            <div class="my-2 px-4"><div class="h-px bg-[#262626]"></div></div>
+            <a href="#proxy" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="proxy"><i class="fa-solid fa-tower-broadcast w-4 text-center"></i> Proxy</a>
+            <a href="#sistema" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="sistema"><i class="fa-solid fa-server w-4 text-center"></i> Sistema</a>
+        </nav>
+
+        <div class="p-4 border-t border-[#262626] space-y-2">
+            <div class="flex items-center gap-2 text-[10px]">
+                <span class="w-2 h-2 rounded-full bg-gray-600" id="status-dot"></span>
+                <span id="status-label" class="text-gray-500">Conectando...</span>
+            </div>
+            <div class="flex items-center gap-2 text-[10px]">
+                <span class="w-2 h-2 rounded-full bg-gray-600" id="ws-dot"></span>
+                <span id="ws-label" class="text-gray-500">WS offline</span>
+            </div>
+        </div>
+    </aside>
+
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="sticky top-0 z-20 bg-[#0a0a0a]/95 backdrop-blur border-b border-[#262626] px-4 py-3 flex items-center gap-3">
+            <button onclick="toggleSidebar()" class="lg:hidden w-9 h-9 rounded-lg bg-[#141414] border border-[#262626] flex items-center justify-center">
+                <i class="fa-solid fa-bars text-sm"></i>
+            </button>
+            <h1 id="page-title" class="text-lg font-bold flex-1">Dashboard</h1>
+            <div id="ws-badge" class="h-9 px-3 rounded-lg bg-[#141414] border border-[#262626] flex items-center gap-2 text-xs text-gray-500">
+                <span class="w-2 h-2 rounded-full bg-gray-500" id="ws-badge-dot"></span>
+                <span id="ws-badge-text">--</span>
+            </div>
+            <button onclick="manualRefresh()" class="h-9 px-3 rounded-lg bg-[#141414] border border-[#262626] text-xs font-medium flex items-center gap-2 hover:bg-[#1a1a1a]">
+                <i class="fa-solid fa-rotate-right"></i> <span class="hidden sm:inline">Atualizar</span>
+            </button>
+        </header>
+
+        <main id="content" class="flex-1 p-4 lg:p-6 overflow-x-hidden"></main>
+    </div>
+</div>
+
+<div id="toast-root" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+<div id="modal-root"></div>
+
+<script>
+const API = '';
+window._pedidoAtual = null;
+
+let WS = null;
+let WS_RECONNECT_TIMER = null;
+
+function conectarWS() {
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${proto}//${location.host}/ws`;
+    try { WS = new WebSocket(url); } catch (e) { agendarReconectarWS(); return; }
+
+    WS.onopen = () => { atualizarStatusWS(true); };
+    WS.onclose = () => { atualizarStatusWS(false); agendarReconectarWS(); };
+    WS.onerror = () => atualizarStatusWS(false);
+    WS.onmessage = (ev) => {
+        if (ev.data === 'pong') return;
+        try {
+            const msg = JSON.parse(ev.data);
+            tratarEvento(msg.evento, msg.dados);
+        } catch {}
+    };
+    setInterval(() => { if (WS && WS.readyState === WebSocket.OPEN) WS.send('ping'); }, 25000);
+}
+
+function agendarReconectarWS() {
+    if (WS_RECONNECT_TIMER) clearTimeout(WS_RECONNECT_TIMER);
+    WS_RECONNECT_TIMER = setTimeout(conectarWS, 3000);
+}
+
+function atualizarStatusWS(online) {
+    const dot = document.getElementById('ws-dot');
+    const lbl = document.getElementById('ws-label');
+    const bd = document.getElementById('ws-badge-dot');
+    const bt = document.getElementById('ws-badge-text');
+    if (online) {
+        dot.className = 'w-2 h-2 rounded-full bg-green-400 pulse';
+        lbl.textContent = 'Tempo real ativo';
+        bd.className = 'w-2 h-2 rounded-full bg-green-400 pulse';
+        bt.textContent = 'AO VIVO';
+        bt.className = 'text-green-400 font-bold';
+    } else {
+        dot.className = 'w-2 h-2 rounded-full bg-red-500';
+        lbl.textContent = 'WS offline';
+        bd.className = 'w-2 h-2 rounded-full bg-red-500';
+        bt.textContent = 'OFFLINE';
+        bt.className = 'text-red-400';
+    }
+}
+
+function tratarEvento(evento, dados) {
+    if (evento === 'catalogo_sincronizado') {
+        Toast.show(`📡 Catálogo: ${dados.total_filmes} filmes, ${dados.total_series} séries`, 'info', 4000);
+        if (['dashboard','filmes','series','canais'].includes(Router.current)) Router.render();
+    } else if (evento === 'item_editado') {
+        Toast.show(`✏️ ${dados.tipo} "${dados.titulo}" atualizado`, 'success', 3000);
+        if (['filmes','series','canais','slider'].includes(Router.current)) Router.render();
+    }
+}
+
+const Toast = {
+    show(msg, type = 'info', dur = 3000) {
+        const colors = { info: 'border-blue-500', success: 'border-green-500', error: 'border-red-500', warn: 'border-yellow-500' };
+        const icons = { info: 'fa-circle-info', success: 'fa-circle-check', error: 'fa-circle-exclamation', warn: 'fa-triangle-exclamation' };
+        const el = document.createElement('div');
+        el.className = `toast-slide bg-[#141414] border-l-4 ${colors[type] || colors.info} rounded-lg px-4 py-3 text-sm shadow-2xl min-w-[260px] max-w-[380px] flex items-start gap-3`;
+        el.innerHTML = `<i class="fa-solid ${icons[type]} mt-0.5"></i><div class="flex-1">${msg}</div>`;
+        document.getElementById('toast-root').appendChild(el);
+        setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, dur);
+    }
+};
+
+const Api = {
+    async get(path) {
+        const r = await fetch(API + path);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+    },
+    async post(path, body = null) {
+        const opts = { method: 'POST' };
+        if (body) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
+        const r = await fetch(API + path, opts);
+        if (!r.ok) { const erro = await r.json().catch(() => ({ detail: `HTTP ${r.status}` })); throw new Error(erro.detail || `HTTP ${r.status}`); }
+        return await r.json();
+    },
+    async del(path) {
+        const r = await fetch(API + path, { method: 'DELETE' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return await r.json();
+    },
+    status() { return this.get('/status'); },
+    proxyStats() { return this.get('/proxy/stats'); },
+    adminFilmes: (q='', page=1, size=30) => Api.get(`/admin/filmes?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
+    adminSeries: (q='', page=1, size=30) => Api.get(`/admin/series?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
+    adminCanais: (q='', page=1, size=30) => Api.get(`/admin/canais?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
+    adminItem: (tipo, id) => Api.get(`/admin/item/${tipo}/${id}`),
+    deletarItem: (tipo, id) => Api.del(`/admin/item/${tipo}/${id}`),
+    notifHistorico() { return this.get('/admin/notificacoes/historico'); },
+    notifEnviar(payload) { return this.post('/admin/notificacoes/enviar', payload); },
+    pedidos() { return this.get('/admin/notificacoes/pedidos'); },
+    concluirPedido(id, payload) { return this.post(`/admin/notificacoes/pedidos/${id}/concluir`, payload); },
+    wipeAll() { return this.post('/admin/wipe-all'); },
+    forceSyncStatus() { return this.get('/admin/force-sync/status'); },
+    iptvBuscar: (q, tipo) => Api.get(`/admin/iptv/buscar?q=${encodeURIComponent(q)}&tipo=${tipo}`),
+    iptvAdicionar: (payload) => Api.post('/admin/iptv/adicionar', payload),
+    iptvAdicionarLote: (items) => Api.post('/admin/iptv/adicionar-lote', { items }),
+    iptvImportarLoteBg: (tipo, qtd) => Api.post(`/admin/iptv/importar-lote-bg?tipo=${tipo}&quantidade=${qtd}`),
+    iptvImportarLoteBgStatus: () => Api.get('/admin/iptv/importar-lote-bg/status'),
+    usuarios() { return this.get('/admin/notificacoes/usuarios'); },
+    bloquearUsuario(uid, status) { return this.post(`/admin/notificacoes/usuarios/${uid}/bloquear?bloqueado=${status}`); },
+    deletarUsuario(uid) { return this.del(`/admin/notificacoes/usuarios/${uid}`); },
+    alterarPlano(uid, plano) { return this.post(`/admin/notificacoes/usuarios/${uid}/alterar-plano`, { plano }); },
+    // 💰 NOVAS
+    adminClientes() { return this.get('/admin/clientes'); },
+    adminCriarCliente(p) { return this.post('/admin/clientes', p); },
+    adminAtualizarCliente(id, p) { return this.req('PUT', `/admin/clientes/${id}`, p); },
+    adminDeletarCliente(id) { return this.del(`/admin/clientes/${id}`); },
+    adminResetSenha(id, senha) { return this.post(`/admin/clientes/${id}/resetar-senha`, { nova_senha: senha }); },
+    adminNovaChave(id) { return this.post(`/admin/clientes/${id}/nova-chave`, { nome: 'admin' }); },
+    adminFaturas() { return this.get('/admin/faturas'); },
+    adminMarcarPaga(id) { return this.post(`/admin/faturas/${id}/marcar-paga`); },
+    async req(method, path, body) {
+        const opts = { method };
+        if (body) { opts.headers = {'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
+        const r = await fetch(API + path, opts);
+        if (!r.ok) { const e = await r.json().catch(()=>({detail:`HTTP ${r.status}`})); throw new Error(e.detail || `HTTP ${r.status}`); }
+        return r.json();
+    }
+};
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (n) => Number(n || 0).toLocaleString('pt-BR');
+const fmtData = (s) => { if (!s) return '—'; try { return new Date(s).toLocaleDateString('pt-BR'); } catch { return s; } };
+
+function toggleSidebar() {
+    const sb = document.getElementById('sidebar');
+    const ov = document.getElementById('sidebar-overlay');
+    const open = !sb.classList.contains('-translate-x-full');
+    if (open) { sb.classList.add('-translate-x-full'); ov.classList.add('hidden'); }
+    else { sb.classList.remove('-translate-x-full'); ov.classList.remove('hidden'); }
+}
+
+const Router = {
+    current: 'dashboard',
+    go(route) { window.location.hash = '#' + route; },
+    handle() {
+        const h = window.location.hash.replace('#', '') || 'dashboard';
+        this.current = h;
+        document.querySelectorAll('.sidebar-link').forEach(a => { a.classList.toggle('active', a.dataset.route === h); });
+        const titles = {
+            dashboard: 'Dashboard', clientes: 'Clientes', faturamento_admin: 'Faturamento (Admin)',
+            pedidos: 'Pedidos de Conteúdo', usuarios: 'Usuários App',
+            iptv: 'IPTV Direto', notificacoes: 'Notificações Push', slider: 'Slider (Hero)',
+            filmes: 'Filmes', series: 'Séries', canais: 'Canais', proxy: 'Proxy', sistema: 'Sistema'
+        };
+        document.getElementById('page-title').textContent = titles[h] || h;
+        this.render();
+        if (window.innerWidth < 1024) {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+            document.getElementById('sidebar-overlay').classList.add('hidden');
+        }
+    },
+    async render() {
+        const c = document.getElementById('content');
+        c.innerHTML = `<div class="flex items-center justify-center h-64 text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-2xl"></i></div>`;
+        try {
+            if (this.current === 'dashboard') await Views.dashboard(c);
+            else if (this.current === 'clientes') await Views.clientes(c);
+            else if (this.current === 'faturamento_admin') await Views.faturamentoAdmin(c);
+            else if (this.current === 'pedidos') await Views.pedidos(c);
+            else if (this.current === 'usuarios') await Views.usuarios(c);
+            else if (this.current === 'iptv') await Views.buscaIptv(c);
+            else if (this.current === 'notificacoes') await Views.notificacoes(c);
+            else if (this.current === 'slider') await Views.slider(c);
+            else if (this.current === 'filmes') await Views.list(c, 'filme');
+            else if (this.current === 'series') await Views.list(c, 'serie');
+            else if (this.current === 'canais') await Views.list(c, 'canal');
+            else if (this.current === 'proxy') await Views.proxy(c);
+            else if (this.current === 'sistema') await Views.sistema(c);
+        } catch (e) { c.innerHTML = `<div class="text-center py-16 text-red-400">Erro: ${esc(e.message)}</div>`; }
+    }
+};
+
+// ==================================================================
+// VIEWS
+// ==================================================================
+const Views = {
+
+    // ============ 💰 NOVO: CLIENTES ============
+    async clientes(c) {
+        const data = await Api.adminClientes();
+        const itens = data.items || [];
+        c.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-black">👥 Clientes da API</h2>
+                    <p class="text-xs text-gray-500 mt-1">${fmt(data.total)} clientes cadastrados.</p>
+                </div>
+                <button onclick="Views.criarCliente()" class="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold flex items-center gap-2"><i class="fa-solid fa-plus"></i> Novo cliente</button>
+            </div>
+            ${itens.length === 0 ? `
+                <div class="stat-card rounded-xl p-12 text-center">
+                    <i class="fa-solid fa-user-tie text-5xl text-gray-600 mb-4"></i>
+                    <h3 class="text-lg font-bold mb-2">Nenhum cliente ainda</h3>
+                    <p class="text-xs text-gray-500 mb-4">Crie o primeiro cliente que vai assinar sua API.</p>
+                    <button onclick="Views.criarCliente()" class="h-10 px-6 rounded-lg bg-red-600 text-sm font-bold">Criar cliente</button>
+                </div>
+            ` : `
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${itens.map(cl => {
+                        const dias = cl.plano_expira_em ? Math.ceil((new Date(cl.plano_expira_em) - Date.now()) / 86400000) : 0;
+                        const expirado = dias <= 0;
+                        return `
+                        <div class="stat-card rounded-xl p-4 ${!cl.ativo ? 'opacity-60 border-red-600/50' : expirado ? 'border-yellow-600/50' : ''}">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-bold truncate">${esc(cl.nome)}</div>
+                                    <div class="text-[10px] text-gray-400 truncate">${esc(cl.email)}</div>
+                                    ${cl.empresa ? `<div class="text-[10px] text-gray-500 truncate">${esc(cl.empresa)}</div>` : ''}
+                                </div>
+                                <div class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px] font-bold whitespace-nowrap">${esc(cl.plano_nome || cl.plano || '—')}</div>
+                            </div>
+                            <div class="text-[10px] text-gray-500 space-y-1 mb-3">
+                                <div><i class="fa-solid fa-key mr-1"></i>${cl.chaves_ativas} chave(s) ativa(s)</div>
+                                <div><i class="fa-solid fa-bolt mr-1"></i>${fmt(cl.req_mes)} req este mês</div>
+                                <div class="${expirado ? 'text-red-400 font-bold' : dias <= 5 ? 'text-yellow-400' : ''}">
+                                    <i class="fa-solid fa-calendar mr-1"></i>${expirado ? 'EXPIRADO' : `expira em ${dias}d`}
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <button onclick="Views.editarCliente(${cl.id})" class="h-8 rounded bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white text-[10px] font-bold"><i class="fa-solid fa-pen mr-1"></i>Editar</button>
+                                <button onclick="Views.novaChaveCliente(${cl.id})" class="h-8 rounded bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white text-[10px] font-bold"><i class="fa-solid fa-key mr-1"></i>Chave</button>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="Views.toggleAtivo(${cl.id}, ${!cl.ativo})" class="flex-1 h-8 rounded ${cl.ativo ? 'bg-orange-600/20 hover:bg-orange-600 text-orange-400' : 'bg-green-600/20 hover:bg-green-600 text-green-400'} hover:text-white text-[10px] font-bold">
+                                    <i class="fa-solid ${cl.ativo ? 'fa-ban' : 'fa-check'} mr-1"></i>${cl.ativo ? 'Suspender' : 'Reativar'}
+                                </button>
+                                <button onclick="Views.deletarCliente(${cl.id}, '${esc(cl.nome)}')" class="w-8 h-8 rounded bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            `}
+        `;
+    },
+
+    criarCliente() {
+        document.getElementById('modal-root').innerHTML = `
+            <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-y-auto" onclick="if(event.target===this)Views.fecharModal()">
+                <div class="bg-[#141414] rounded-2xl w-full max-w-md border border-[#262626] my-8">
+                    <div class="p-4 border-b border-[#262626] flex items-center justify-between">
+                        <div class="font-bold text-sm">Novo cliente</div>
+                        <button onclick="Views.fecharModal()" class="w-8 h-8 rounded-lg hover:bg-[#222]"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <form onsubmit="Views.salvarNovoCliente(event)" class="p-5 space-y-3">
+                        <div><label class="text-xs text-gray-400 block mb-1">Nome *</label><input name="nome" class="input-dark" required></div>
+                        <div><label class="text-xs text-gray-400 block mb-1">Email *</label><input name="email" type="email" class="input-dark" required></div>
+                        <div><label class="text-xs text-gray-400 block mb-1">Empresa</label><input name="empresa" class="input-dark"></div>
+                        <div><label class="text-xs text-gray-400 block mb-1">Senha inicial *</label><input name="senha" type="text" class="input-dark" required value="${Math.random().toString(36).slice(-10)}"></div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div><label class="text-xs text-gray-400 block mb-1">Plano</label>
+                                <select name="plano" class="input-dark"><option value="free">Free</option><option value="starter">Starter</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option></select>
+                            </div>
+                            <div><label class="text-xs text-gray-400 block mb-1">Dias de validade</label>
+                                <input name="dias" type="number" class="input-dark" placeholder="auto" min="1">
+                            </div>
+                        </div>
+                        <div class="flex gap-2 pt-2"><button type="button" onclick="Views.fecharModal()" class="flex-1 h-10 rounded-lg bg-[#1a1a1a] border border-[#262626] text-xs">Cancelar</button><button type="submit" class="flex-1 h-10 rounded-lg bg-red-600 text-xs font-bold">Criar cliente</button></div>
+                    </form>
+                </div>
+            </div>`;
+    },
+
+    async salvarNovoCliente(ev) {
+        ev.preventDefault();
+        const form = ev.target;
+        const payload = {
+            nome: form.nome.value, email: form.email.value, senha: form.senha.value,
+            empresa: form.empresa.value || null, plano: form.plano.value,
+            dias: form.dias.value ? parseInt(form.dias.value) : null,
+        };
+        try {
+            const r = await Api.adminCriarCliente(payload);
+            document.getElementById('modal-root').innerHTML = `
+                <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                    <div class="bg-[#141414] rounded-2xl w-full max-w-lg border border-[#262626] p-6">
+                        <div class="text-center mb-4">
+                            <div class="w-16 h-16 rounded-full bg-green-600/20 flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-check text-green-400 text-2xl"></i></div>
+                            <h3 class="text-lg font-bold">Cliente criado!</h3>
+                        </div>
+                        <div class="space-y-2 text-xs mb-4">
+                            <div><b>Email:</b> ${esc(payload.email)}</div>
+                            <div><b>Senha:</b> ${esc(payload.senha)}</div>
+                            <div class="text-red-400 font-bold mt-2">Chave de API (mostrar agora!):</div>
+                            <div class="key-box text-green-400" style="background:#0a0a0a;border:1px dashed #333;border-radius:8px;padding:10px;font-family:monospace;font-size:12px;word-break:break-all">${esc(r.api_key)}</div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="navigator.clipboard.writeText('${esc(r.api_key)}');Toast.show('Copiado','success')" class="flex-1 h-10 rounded-lg bg-green-600 hover:bg-green-700 text-xs font-bold"><i class="fa-solid fa-copy mr-1"></i> Copiar chave</button>
+                            <button onclick="Views.fecharModal();Router.render()" class="flex-1 h-10 rounded-lg bg-[#1a1a1a] border border-[#262626] text-xs">Fechar</button>
+                        </div>
+                    </div>
+                </div>`;
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async editarCliente(id) {
+        const data = await Api.adminClientes();
+        const cl = (data.items || []).find(x => x.id === id);
+        if (!cl) return;
+        document.getElementById('modal-root').innerHTML = `
+            <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onclick="if(event.target===this)Views.fecharModal()">
+                <div class="bg-[#141414] rounded-2xl w-full max-w-md border border-[#262626] p-5">
+                    <h3 class="font-bold text-sm mb-4">Editar: ${esc(cl.nome)}</h3>
+                    <div class="space-y-3">
+                        <div><label class="text-xs text-gray-400 block mb-1">Plano</label>
+                            <select id="edit-plano" class="input-dark">
+                                <option value="free" ${cl.plano === 'free' ? 'selected' : ''}>Free</option>
+                                <option value="starter" ${cl.plano === 'starter' ? 'selected' : ''}>Starter</option>
+                                <option value="pro" ${cl.plano === 'pro' ? 'selected' : ''}>Pro</option>
+                                <option value="enterprise" ${cl.plano === 'enterprise' ? 'selected' : ''}>Enterprise</option>
+                            </select>
+                        </div>
+                        <div><label class="text-xs text-gray-400 block mb-1">Estender validade (dias)</label>
+                            <input id="edit-dias" type="number" class="input-dark" placeholder="deixe vazio para não alterar" min="1">
+                        </div>
+                        <div><label class="text-xs text-gray-400 block mb-1">Resetar senha</label>
+                            <input id="edit-senha" type="text" class="input-dark" placeholder="nova senha (opcional)">
+                        </div>
+                    </div>
+                    <div class="flex gap-2 mt-4">
+                        <button onclick="Views.fecharModal()" class="flex-1 h-10 rounded-lg bg-[#1a1a1a] border border-[#262626] text-xs">Cancelar</button>
+                        <button onclick="Views.salvarEdicaoCliente(${id})" class="flex-1 h-10 rounded-lg bg-red-600 text-xs font-bold">Salvar</button>
+                    </div>
+                </div>
+            </div>`;
+    },
+
+    async salvarEdicaoCliente(id) {
+        try {
+            const plano = document.getElementById('edit-plano').value;
+            const diasEl = document.getElementById('edit-dias').value;
+            const dias = diasEl ? parseInt(diasEl) : null;
+            const senha = document.getElementById('edit-senha').value;
+            const payload = { plano };
+            if (dias) payload.dias = dias;
+            await Api.adminAtualizarCliente(id, payload);
+            if (senha) await Api.adminResetSenha(id, senha);
+            Toast.show('Cliente atualizado', 'success');
+            Views.fecharModal();
+            Router.render();
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async novaChaveCliente(id) {
+        if (!confirm('Gerar nova chave? A chave só será mostrada uma vez.')) return;
+        try {
+            const r = await Api.adminNovaChave(id);
+            document.getElementById('modal-root').innerHTML = `
+                <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                    <div class="bg-[#141414] rounded-2xl w-full max-w-lg border border-[#262626] p-6">
+                        <div class="text-center mb-4">
+                            <div class="w-16 h-16 rounded-full bg-green-600/20 flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-key text-green-400 text-2xl"></i></div>
+                            <h3 class="text-lg font-bold">Nova chave gerada!</h3>
+                            <p class="text-xs text-red-400 mt-1">Copie agora.</p>
+                        </div>
+                        <div class="key-box text-green-400 mb-4" style="background:#0a0a0a;border:1px dashed #333;border-radius:8px;padding:10px;font-family:monospace;font-size:12px;word-break:break-all">${esc(r.chave)}</div>
+                        <div class="flex gap-2">
+                            <button onclick="navigator.clipboard.writeText('${esc(r.chave)}');Toast.show('Copiado','success')" class="flex-1 h-10 rounded-lg bg-green-600 hover:bg-green-700 text-xs font-bold"><i class="fa-solid fa-copy mr-1"></i> Copiar</button>
+                            <button onclick="Views.fecharModal();Router.render()" class="flex-1 h-10 rounded-lg bg-[#1a1a1a] border border-[#262626] text-xs">Fechar</button>
+                        </div>
+                    </div>
+                </div>`;
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async toggleAtivo(id, novoStatus) {
+        const acao = novoStatus ? 'reativar' : 'suspender';
+        if (!confirm(`Tem certeza que quer ${acao} este cliente?`)) return;
+        try {
+            await Api.adminAtualizarCliente(id, { ativo: novoStatus });
+            Toast.show(`Cliente ${novoStatus ? 'reativado' : 'suspenso'}`, 'success');
+            Router.render();
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async deletarCliente(id, nome) {
+        if (!confirm(`⚠️ Excluir "${nome}"? Todas as chaves e faturas serão apagadas.`)) return;
+        try {
+            await Api.adminDeletarCliente(id);
+            Toast.show('Cliente excluído', 'success');
+            Router.render();
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    // ============ 💰 NOVO: FATURAMENTO ADMIN ============
+    async faturamentoAdmin(c) {
+        const data = await Api.adminFaturas();
+        const itens = data.items || [];
+        c.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-black">💳 Faturamento</h2>
+                    <p class="text-xs text-gray-500 mt-1">Últimas 200 transações.</p>
+                </div>
+                <button onclick="Router.render()" class="h-10 px-4 rounded-lg bg-[#1a1a1a] border border-[#333] text-xs font-bold"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            ${itens.length === 0 ? `
+                <div class="stat-card rounded-xl p-12 text-center">
+                    <i class="fa-solid fa-file-invoice text-5xl text-gray-600 mb-4"></i>
+                    <p class="text-sm text-gray-500">Nenhuma fatura ainda.</p>
+                </div>
+            ` : `
+                <div class="stat-card rounded-xl overflow-hidden">
+                    <table class="w-full text-sm">
+                        <thead class="bg-[#0f0f0f] border-b border-[#262626] text-xs text-gray-400 uppercase"><tr>
+                            <th class="text-left px-4 py-3">Data</th>
+                            <th class="text-left px-4 py-3">Cliente</th>
+                            <th class="text-left px-4 py-3">Valor</th>
+                            <th class="text-left px-4 py-3 hidden md:table-cell">Gateway</th>
+                            <th class="text-left px-4 py-3">Status</th>
+                            <th class="text-center px-4 py-3">Ação</th>
+                        </tr></thead>
+                        <tbody>
+                            ${itens.map(f => `
+                                <tr class="border-b border-[#1f1f1f] hover:bg-[#0f0f0f]">
+                                    <td class="px-4 py-3 text-xs">${fmtData(f.criada_em)}</td>
+                                    <td class="px-4 py-3"><div class="text-xs font-bold">${esc(f.cliente)}</div><div class="text-[10px] text-gray-500">${esc(f.cliente_email)}</div></td>
+                                    <td class="px-4 py-3 font-bold">R$ ${(f.valor || 0).toFixed(2)}</td>
+                                    <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-400">${esc(f.gateway || '—')}</td>
+                                    <td class="px-4 py-3"><span class="text-[10px] px-2 py-1 rounded ${f.status === 'paga' ? 'bg-green-500/20 text-green-400' : f.status === 'falhou' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'}">${esc((f.status || '').toUpperCase())}</span></td>
+                                    <td class="px-4 py-3 text-center">${f.status !== 'paga' ? `<button onclick="Views.marcarPaga(${f.id})" class="h-7 px-2 rounded bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white text-[10px] font-bold">Marcar paga</button>` : '<i class="fa-solid fa-check text-green-400"></i>'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `}
+        `;
+    },
+
+    async marcarPaga(id) {
+        try {
+            await Api.adminMarcarPaga(id);
+            Toast.show('Fatura marcada como paga', 'success');
+            Router.render();
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    // ============ VIEWS EXISTENTES (inalteradas) ============
+    async dashboard(c) {
+        const s = await Api.status().catch(() => ({}));
+        const stats = s.stats || {};
+        const proxy = s.proxy || {};
+        c.innerHTML = `
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                ${this.statCard('Filmes', fmt(stats.total_filmes), 'fa-film', 'text-blue-400')}
+                ${this.statCard('Séries', fmt(stats.total_series), 'fa-tv', 'text-purple-400')}
+                ${this.statCard('Canais', fmt(stats.total_canais), 'fa-satellite-dish', 'text-green-400')}
+                ${this.statCard('Slugs proxy', fmt(proxy.slugs_carregados), 'fa-link', 'text-yellow-400')}
+            </div>
+
+            <div class="stat-card rounded-xl p-5 mb-6 border-red-600/30 bg-red-600/5">
+                <div class="flex flex-col md:flex-row items-center gap-4 mb-4">
+                    <div class="w-14 h-14 rounded-full bg-red-600/20 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-trash text-red-500 text-xl" id="sync-icon"></i>
+                    </div>
+                    <div class="flex-1 text-center md:text-left">
+                        <h3 class="text-sm font-bold text-white mb-1">Zona de Perigo</h3>
+                        <p class="text-xs text-gray-400">Apaga filmes, séries e canais. <b>Não afeta clientes.</b></p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
+                        <button id="btn-wipe-all" onclick="Actions.wipeAll()" class="h-10 px-4 rounded-lg bg-red-900/50 border border-red-700/50 hover:bg-red-800 text-red-400 hover:text-white text-xs font-bold flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-bomb"></i> Apagar Catálogo
+                        </button>
+                    </div>
+                </div>
+                <div id="sync-logs-area" class="hidden mt-4 bg-black border border-[#333] rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] text-green-400 space-y-1"></div>
+            </div>
+        `;
+        if (s.sync_ativo) {
+            document.getElementById('sync-logs-area').classList.remove('hidden');
+            document.getElementById('btn-wipe-all').disabled = true;
+            document.getElementById('btn-wipe-all').innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Limpando...';
+            Actions.pollSync();
+        }
+    },
+
+    async usuarios(c) {
+        const data = await Api.usuarios().catch(() => ({ items: [] }));
+        const itens = data.items || [];
+        c.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-xl font-black">👥 Usuários do App</h2><p class="text-xs text-gray-500 mt-1">Usuários do aplicativo (não confundir com clientes da API).</p></div>
+                <button onclick="Router.render()" class="h-10 px-4 rounded-lg bg-[#1a1a1a] border border-[#333] text-xs font-bold"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            ${itens.length === 0 ? `<div class="stat-card rounded-xl p-12 text-center"><i class="fa-solid fa-users-slash text-5xl text-gray-600 mb-4"></i><p class="text-xs text-gray-500">Nenhum usuário.</p></div>` : `
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${itens.map(u => `
+                        <div class="stat-card rounded-xl p-4 ${u.bloqueado ? 'opacity-60 border-red-600/50' : ''}">
+                            <div class="flex items-center gap-3 mb-3">
+                                ${u.foto ? `<img src="${esc(u.foto)}" class="w-12 h-12 rounded-full object-cover">` : `<div class="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-lg font-bold text-gray-500">${esc((u.nome||'?').charAt(0))}</div>`}
+                                <div class="flex-1 min-w-0"><div class="text-sm font-bold truncate">${esc(u.nome)}</div><div class="text-[10px] text-gray-400 truncate">${esc(u.email)}</div></div>
+                                <div class="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 text-[10px] font-bold">${esc(u.plano || 'Grátis')}</div>
+                            </div>
+                            <div class="text-[9px] font-mono text-gray-600 truncate mb-3">UID: ${esc(u.uid)}</div>
+                            <div class="flex gap-2">
+                                ${u.bloqueado ? `<button onclick="Views._toggleBloqueio('${u.uid}', false)" class="flex-1 h-8 rounded bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white text-xs font-bold">Desbloquear</button>` : `<button onclick="Views._toggleBloqueio('${u.uid}', true)" class="flex-1 h-8 rounded bg-orange-600/20 hover:bg-orange-600 text-orange-400 hover:text-white text-xs font-bold">Bloquear</button>`}
+                                <button onclick="Views._deletarUsuario('${u.uid}', '${esc(u.nome)}')" class="w-8 h-8 rounded bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white"><i class="fa-solid fa-trash"></i></button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `}
+        `;
+    },
+
+    async _toggleBloqueio(uid, status) {
+        if (!confirm(`Tem certeza?`)) return;
+        try { await Api.bloquearUsuario(uid, status); Toast.show('OK', 'success'); Router.render(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async _deletarUsuario(uid, nome) {
+        if (!confirm(`⚠️ Excluir "${nome}"?`)) return;
+        try { await Api.deletarUsuario(uid); Toast.show('Excluído', 'success'); Router.render(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async pedidos(c) {
+        const data = await Api.pedidos().catch(() => ({ items: [] }));
+        const itens = data.items || [];
+        const badge = document.getElementById('badge-pedidos');
+        if (badge) { if (itens.length > 0) { badge.textContent = itens.length; badge.classList.remove('hidden'); } else badge.classList.add('hidden'); }
+        c.innerHTML = `
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-xl font-black">📥 Pedidos</h2><p class="text-xs text-gray-500 mt-1">Solicitações dos usuários do app.</p></div>
+                <button onclick="Router.render()" class="h-10 px-4 rounded-lg bg-[#1a1a1a] border border-[#333] text-xs font-bold"><i class="fa-solid fa-rotate"></i> Atualizar</button>
+            </div>
+            ${itens.length === 0 ? `<div class="stat-card rounded-xl p-12 text-center"><i class="fa-solid fa-inbox text-5xl text-gray-600 mb-4"></i><p class="text-xs text-gray-500">Nenhum pedido.</p></div>` : `
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${itens.map(p => `
+                        <div class="stat-card rounded-xl p-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold">${p.type === 'filme' ? 'FILME' : 'SÉRIE'}</span>
+                                <span class="text-[10px] text-gray-500">${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : ''}</span>
+                            </div>
+                            <div class="text-sm font-bold text-white mb-1">${esc(p.title)}</div>
+                            <div class="text-[10px] text-gray-400 mb-3">Por: <b>${esc(p.solicitanteNome)}</b></div>
+                            <div class="flex gap-2">
+                                <button onclick="Views._concluirPedido('${p.id}', '${esc(p.title)}', '${p.type}')" class="flex-1 h-8 rounded bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white text-xs font-bold"><i class="fa-solid fa-check mr-1"></i> Concluir</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `}
+        `;
+    },
+
+    async _concluirPedido(id, titulo, tipo) {
+        if (!confirm(`Marcar "${titulo}" como concluído?`)) return;
+        try { await Api.concluirPedido(id, { titulo, tipo }); Toast.show('Concluído', 'success'); Router.render(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async buscaIptv(c) {
+        c.innerHTML = `
+            <div class="stat-card rounded-xl p-5 mb-6 border-purple-500/30 bg-purple-600/5">
+                <div class="text-sm font-bold mb-2"><i class="fa-solid fa-layer-group text-purple-400 mr-2"></i> Importação em Massa</div>
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div class="flex-1 min-w-[140px]"><label class="text-[10px] text-gray-500 block mb-1">O que importar?</label><select id="imp-tipo" class="input-dark"><option value="filme">🎬 Filmes</option><option value="serie">📺 Séries</option><option value="canal">📡 Canais</option></select></div>
+                    <div class="flex-1 min-w-[140px]"><label class="text-[10px] text-gray-500 block mb-1">Quantidade</label><select id="imp-qtd" class="input-dark"><option value="50">50</option><option value="100">100</option><option value="500">500</option><option value="1000">1000</option><option value="-1">Tudo</option></select></div>
+                    <button onclick="Views._importarLoteBg()" id="btn-imp-lote" class="h-10 px-4 rounded-lg bg-purple-600 hover:bg-purple-700 text-xs font-bold"><i class="fa-solid fa-cloud-arrow-down"></i> Importar</button>
+                </div>
+                <div id="imp-logs-area" class="hidden mt-4 bg-black border border-[#333] rounded-lg p-3 h-48 overflow-y-auto font-mono text-[10px] text-green-400 space-y-1"></div>
+            </div>
+            <div class="stat-card rounded-xl p-5 mb-6 border-blue-500/30 bg-blue-600/5">
+                <div class="text-sm font-bold mb-2"><i class="fa-solid fa-satellite-dish text-blue-400 mr-2"></i> Busca Manual</div>
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div class="flex-1 min-w-[140px]"><label class="text-[10px] text-gray-500 block mb-1">Tipo</label><select id="iptv-tipo" class="input-dark"><option value="filme">🎬 Filme</option><option value="serie">📺 Série</option></select></div>
+                    <div class="flex-[2] min-w-[220px]"><label class="text-[10px] text-gray-500 block mb-1">Buscar</label><input id="iptv-busca" class="input-dark" placeholder="Digite o nome..."></div>
+                    <button onclick="Views._iptvBuscar()" id="btn-iptv-buscar" class="h-10 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-xs font-bold"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+                </div>
+            </div>
+            <div id="iptv-lote-acoes" class="hidden mb-4 flex items-center justify-between bg-[#141414] border border-[#333] p-3 rounded-xl">
+                <div class="text-xs font-bold text-gray-300"><span id="lote-count">0</span> selecionados</div>
+                <button onclick="Views._iptvAdicionarLote()" class="h-8 px-4 rounded-lg bg-green-600 hover:bg-green-700 text-xs font-bold text-white"><i class="fa-solid fa-plus mr-1"></i> Adicionar</button>
+            </div>
+            <div id="iptv-resultados" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        `;
+        document.getElementById('iptv-busca').onkeydown = (e) => { if (e.key === 'Enter') Views._iptvBuscar(); };
+    },
+
+    async _importarLoteBg() {
+        const tipo = document.getElementById('imp-tipo').value;
+        const qtd = parseInt(document.getElementById('imp-qtd').value);
+        const btn = document.getElementById('btn-imp-lote');
+        const box = document.getElementById('imp-logs-area');
+        if (!confirm(`Importar ${qtd === -1 ? 'todos' : qtd} ${tipo}(s)?`)) return;
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        box.classList.remove('hidden');
+        box.innerHTML = '<div class="text-gray-500">Iniciando...</div>';
+        try {
+            const r = await Api.iptvImportarLoteBg(tipo, qtd);
+            if (!r.ok) throw new Error(r.msg);
+            const timer = setInterval(async () => {
+                const st = await Api.iptvImportarLoteBgStatus();
+                box.innerHTML = st.logs.map(l => `<div>${esc(l)}</div>`).join('');
+                box.scrollTop = box.scrollHeight;
+                if (!st.ativo) {
+                    clearInterval(timer);
+                    btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Importar';
+                    Toast.show('✅ Concluído!', 'success');
+                    pollStatus();
+                    Router.render();
+                }
+            }, 2000);
+        } catch (e) {
+            Toast.show('Erro: ' + e.message, 'error');
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i> Importar';
+        }
+    },
+
+    async _iptvBuscar() {
+        const q = document.getElementById('iptv-busca').value.trim();
+        const tipo = document.getElementById('iptv-tipo').value;
+        if (!q) return Toast.show('Digite algo', 'warn');
+        const btn = document.getElementById('btn-iptv-buscar');
+        const box = document.getElementById('iptv-resultados');
+        document.getElementById('iptv-lote-acoes').classList.add('hidden');
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        box.innerHTML = `<div class="col-span-full text-center py-10"><i class="fa-solid fa-circle-notch fa-spin text-2xl text-blue-500"></i></div>`;
+        try {
+            const r = await Api.iptvBuscar(q, tipo);
+            const items = r.items || [];
+            if (items.length === 0) {
+                box.innerHTML = `<div class="col-span-full text-center py-12"><i class="fa-solid fa-triangle-exclamation text-4xl text-yellow-500 mb-3"></i><div class="text-sm text-white">Nada encontrado.</div></div>`;
+            } else {
+                box.innerHTML = items.map(it => {
+                    const badge = it.ja_existe ? `<div class="absolute inset-0 bg-black/60 flex items-center justify-center rounded-xl z-10"><span class="bg-green-600 text-white text-xs font-bold px-3 py-1 rounded-full"><i class="fa-solid fa-check mr-1"></i> Já está</span></div>` : '';
+                    const btnAdd = it.ja_existe ? `<button disabled class="w-full h-8 rounded bg-[#222] text-gray-500 text-xs font-bold cursor-not-allowed">Adicionado</button>` : `<button onclick='Views._iptvAdicionar(${JSON.stringify(it)})' class="w-full h-8 rounded bg-green-600/20 text-green-400 hover:bg-green-600 hover:text-white text-xs font-bold"><i class="fa-solid fa-plus mr-1"></i> Adicionar</button>`;
+                    const check = it.ja_existe ? `disabled` : `onchange="Views._atualizarLote()"`;
+                    return `<div class="stat-card rounded-xl p-3 flex items-center gap-3 relative overflow-hidden">${badge}<input type="checkbox" class="custom-checkbox iptv-check" value='${JSON.stringify(it)}' ${check}><div class="w-16 h-24 rounded bg-gray-900 overflow-hidden flex-shrink-0">${it.capa ? `<img src="${esc(it.capa)}" class="w-full h-full object-cover">` : ''}</div><div class="flex-1 min-w-0"><div class="text-[10px] text-blue-400 font-bold mb-1">ID: ${it.id}</div><div class="text-xs font-bold truncate">${esc(it.titulo)}</div><div class="text-[10px] text-gray-500 mb-2">${it.ano || '—'}</div>${btnAdd}</div></div>`;
+                }).join('');
+            }
+        } catch (e) {
+            box.innerHTML = `<div class="col-span-full text-center py-8 text-red-400">Erro: ${esc(e.message)}</div>`;
+        }
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Buscar';
+    },
+
+    _atualizarLote() {
+        const checks = document.querySelectorAll('.iptv-check:checked');
+        const box = document.getElementById('iptv-lote-acoes');
+        document.getElementById('lote-count').textContent = checks.length;
+        if (checks.length > 0) box.classList.remove('hidden'); else box.classList.add('hidden');
+    },
+
+    async _iptvAdicionarLote() {
+        const checks = document.querySelectorAll('.iptv-check:checked');
+        if (checks.length === 0) return;
+        const items = Array.from(checks).map(c => JSON.parse(c.value));
+        if (!confirm(`Adicionar ${items.length} itens?`)) return;
+        try { const r = await Api.iptvAdicionarLote(items); Toast.show(`✅ ${r.adicionados} adicionados!`, 'success'); Views._iptvBuscar(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async _iptvAdicionar(item) {
+        if (!confirm(`Adicionar "${item.titulo}"?`)) return;
+        try { const r = await Api.iptvAdicionar(item); if (!r.ok) throw new Error(r.msg); Toast.show('✅ Adicionado!', 'success'); Views._iptvBuscar(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    async notificacoes(c) {
+        c.innerHTML = `
+            <div class="stat-card rounded-xl p-5 max-w-2xl">
+                <div class="text-sm font-bold mb-4"><i class="fa-solid fa-bell mr-2"></i> Enviar notificação push</div>
+                <form onsubmit="Views._enviarNotif(event)" class="space-y-3">
+                    <div><label class="text-xs text-gray-400 block mb-1">Título *</label><input id="notif-title" class="input-dark" required></div>
+                    <div><label class="text-xs text-gray-400 block mb-1">Mensagem *</label><textarea id="notif-body" rows="3" class="input-dark" required></textarea></div>
+                    <div><label class="text-xs text-gray-400 block mb-1">Imagem (opcional)</label><input id="notif-image" class="input-dark font-mono text-xs" placeholder="https://..."></div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div><label class="text-xs text-gray-400 block mb-1">Para</label><select id="notif-target" class="input-dark"><option value="all">Todos</option><option value="specific">Específico</option></select></div>
+                        <div><label class="text-xs text-gray-400 block mb-1">Tipo</label><select id="notif-type" class="input-dark"><option value="geral">Geral</option><option value="lancamento">Lançamento</option></select></div>
+                    </div>
+                    <div id="notif-user-area" class="hidden"><label class="text-xs text-gray-400 block mb-1">UID do usuário</label><input id="notif-uid" class="input-dark font-mono text-xs"></div>
+                    <button type="submit" id="btn-notif" class="w-full h-11 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-bold"><i class="fa-solid fa-rocket mr-1"></i> Enviar</button>
+                </form>
+            </div>
+        `;
+        document.getElementById('notif-target').onchange = (e) => document.getElementById('notif-user-area').classList.toggle('hidden', e.target.value !== 'specific');
+    },
+
+    async _enviarNotif(ev) {
+        ev.preventDefault();
+        const btn = document.getElementById('btn-notif');
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Enviando...';
+        const payload = {
+            title: document.getElementById('notif-title').value,
+            body: document.getElementById('notif-body').value,
+            imageUrl: document.getElementById('notif-image').value,
+            type: document.getElementById('notif-type').value,
+            target: document.getElementById('notif-target').value,
+            uid: document.getElementById('notif-uid')?.value || null,
+        };
+        try { const r = await Api.notifEnviar(payload); Toast.show(r.msg || 'Enviado', 'success'); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rocket"></i> Enviar';
+    },
+
+    async slider(c) {
+        const data = await fetch(API + '/admin/slider').then(r => r.json()).catch(() => ({ items: [] }));
+        const itens = data.items || [];
+        c.innerHTML = `
+            <div class="stat-card rounded-xl p-4 mb-4">
+                <div class="text-sm font-bold mb-3"><i class="fa-solid fa-plus mr-1"></i> Adicionar slide</div>
+                <div class="flex flex-wrap gap-2 items-end">
+                    <div class="flex-1 min-w-[140px]"><label class="text-[10px] text-gray-500 block mb-1">Tipo</label><select id="sl-tipo" class="input-dark"><option value="filme">Filme</option><option value="serie">Série</option></select></div>
+                    <div class="flex-[2] min-w-[220px]"><label class="text-[10px] text-gray-500 block mb-1">Buscar</label><input id="sl-busca" class="input-dark" placeholder="Digite..."></div>
+                    <button onclick="Views._sliderBuscar()" class="h-10 px-4 rounded-lg bg-red-600 text-xs font-bold"><i class="fa-solid fa-search"></i> Buscar</button>
+                </div>
+                <div id="sl-resultados" class="mt-3 max-h-64 overflow-y-auto"></div>
+            </div>
+            <div class="stat-card rounded-xl p-4">
+                <div class="text-xs font-semibold text-gray-400 uppercase mb-3">Slides (${itens.length})</div>
+                ${itens.length === 0 ? `<div class="text-center text-gray-500 py-8 text-sm">Nenhum slide.</div>` : `<div class="space-y-2">${itens.map((s, i) => Views._sliderCard(s, i, itens.length)).join('')}</div>`}
+            </div>
+        `;
+        document.getElementById('sl-busca').onkeydown = (e) => { if (e.key === 'Enter') Views._sliderBuscar(); };
+    },
+
+    _sliderCard(s, i, total) {
+        return `<div class="bg-[#0f0f0f] border border-[#262626] rounded-lg p-3 flex items-center gap-3">
+            <div class="w-20 h-12 rounded overflow-hidden bg-[#0a0a0a] flex-shrink-0">${s.banner ? `<img src="${esc(s.banner)}" class="w-full h-full object-cover">` : ''}</div>
+            <div class="flex-1 min-w-0"><div class="text-sm font-bold truncate">${esc(s.titulo)}</div></div>
+            <button onclick="Views._sliderRemover(${s.id})" class="w-9 h-9 rounded bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white"><i class="fa-solid fa-trash text-xs"></i></button>
+        </div>`;
+    },
+
+    async _sliderBuscar() {
+        const tipo = document.getElementById('sl-tipo').value;
+        const q = document.getElementById('sl-busca').value.trim();
+        const box = document.getElementById('sl-resultados');
+        box.innerHTML = '<div class="text-center py-3 text-xs"><i class="fa-solid fa-circle-notch fa-spin"></i></div>';
+        const rota = tipo === 'filme' ? 'filmes' : 'series';
+        try {
+            const r = await fetch(API + `/admin/${rota}?q=${encodeURIComponent(q)}&page=1&size=20`);
+            const d = await r.json();
+            if (!d.items?.length) { box.innerHTML = '<div class="text-center text-gray-500 py-3 text-xs">Nada</div>'; return; }
+            box.innerHTML = d.items.map(it => `<div class="flex items-center gap-3 bg-[#0a0a0a] border border-[#262626] rounded-lg p-2 mb-1 hover:border-red-600 cursor-pointer" onclick="Views._sliderAdicionar('${tipo}', '${it.iptv_id || it.id}')"><div class="w-10 h-14 rounded bg-gray-900 overflow-hidden flex-shrink-0">${it.capa ? `<img src="${esc(it.capa)}" class="w-full h-full object-cover">` : ''}</div><div class="flex-1 min-w-0"><div class="text-xs font-bold truncate">${esc(it.titulo)}</div></div><button class="h-8 px-3 rounded bg-red-600 text-xs font-bold">+</button></div>`).join('');
+        } catch (e) { box.innerHTML = `<div class="text-red-400 text-xs text-center py-3">Erro</div>`; }
+    },
+
+    async _sliderAdicionar(tipo, id) {
+        const fd = new FormData(); fd.append('ref_tipo', tipo); fd.append('ref_id', id);
+        try { await fetch(API + '/admin/slider', { method: 'POST', body: fd }); Toast.show('Adicionado', 'success'); Router.render(); } catch (e) { Toast.show('Erro', 'error'); }
+    },
+
+    async _sliderRemover(id) {
+        if (!confirm('Remover?')) return;
+        try { await fetch(API + '/admin/slider/' + id, { method: 'DELETE' }); Router.render(); } catch (e) { Toast.show('Erro', 'error'); }
+    },
+
+    async list(c, tipo) {
+        const state = window._listState = window._listState || {}; state[tipo] = state[tipo] || { page: 1, size: 30, q: '' };
+        const load = async () => {
+            const st = state[tipo]; let data;
+            if (tipo === 'filme') data = await Api.adminFilmes(st.q, st.page, st.size);
+            else if (tipo === 'serie') data = await Api.adminSeries(st.q, st.page, st.size);
+            else data = await Api.adminCanais(st.q, st.page, st.size);
+            renderList(data);
+        };
+        const renderList = (data) => {
+            const items = data.items || [];
+            c.innerHTML = `
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <input id="search-${tipo}" type="text" placeholder="🔍 Buscar..." value="${esc(state[tipo].q)}" class="input-dark flex-1 min-w-[200px]">
+                    <button onclick="Views._search('${tipo}')" class="h-10 px-4 rounded-lg bg-red-600 text-xs font-bold"><i class="fa-solid fa-search"></i></button>
+                </div>
+                <div class="stat-card rounded-xl overflow-hidden">
+                    <div class="overflow-x-auto"><table class="w-full text-sm">
+                        <thead class="bg-[#0f0f0f] border-b border-[#262626] text-xs text-gray-400 uppercase"><tr><th class="text-left px-4 py-3 w-16"></th><th class="text-left px-4 py-3">Título</th><th class="text-left px-4 py-3 hidden sm:table-cell">Ano</th><th class="text-center px-4 py-3 w-24">Ações</th></tr></thead>
+                        <tbody>
+                            ${items.length === 0 ? `<tr><td colspan="4" class="text-center py-12 text-gray-500">Nenhum item</td></tr>` : items.map(it => `
+                                <tr class="border-b border-[#1f1f1f] hover:bg-[#0f0f0f]">
+                                    <td class="px-4 py-3"><div class="w-10 h-14 rounded bg-gray-900 overflow-hidden">${it.capa ? `<img src="${esc(it.capa)}" class="w-full h-full object-cover" onerror="this.style.display='none'">` : ''}</div></td>
+                                    <td class="px-4 py-3"><div class="font-medium truncate max-w-[400px]">${esc(it.titulo)}</div><div class="text-[10px] text-gray-500">ID: ${esc(it.iptv_id || '—')}</div></td>
+                                    <td class="px-4 py-3 hidden sm:table-cell text-gray-400">${esc(it.ano || '—')}</td>
+                                    <td class="px-4 py-3 text-center">
+                                        <button onclick="Views.editar('${tipo}', '${it.iptv_id || it.id}')" class="w-9 h-9 rounded-lg bg-[#1a1a1a] hover:bg-[#222] mr-1"><i class="fa-solid fa-pen"></i></button>
+                                        <button onclick="Views.deletar('${tipo}', '${it.iptv_id || it.id}')" class="w-9 h-9 rounded-lg bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white"><i class="fa-solid fa-trash"></i></button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table></div>
+                </div>
+                <div class="flex items-center justify-between mt-4 text-sm">
+                    <div class="text-gray-500 text-xs">${fmt(data.total)} itens · pág ${data.page}</div>
+                    <div class="flex gap-2">
+                        <button ${data.page > 1 ? '' : 'disabled'} onclick="Views._page('${tipo}', ${data.page - 1})" class="h-8 px-3 rounded-lg bg-[#141414] border border-[#262626] text-xs disabled:opacity-40"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button ${(data.page * data.size) < data.total ? '' : 'disabled'} onclick="Views._page('${tipo}', ${data.page + 1})" class="h-8 px-3 rounded-lg bg-[#141414] border border-[#262626] text-xs disabled:opacity-40"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                </div>
+            `;
+            document.getElementById(`search-${tipo}`).onkeydown = (e) => { if (e.key === 'Enter') Views._search(tipo); };
+        };
+        await load();
+    },
+
+    async deletar(tipo, id) {
+        if (!confirm('Excluir?')) return;
+        try { await Api.deletarItem(tipo, id); Toast.show('Excluído', 'success'); Router.render(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
+    },
+
+    _search(tipo) { window._listState[tipo].q = document.getElementById(`search-${tipo}`).value; window._listState[tipo].page = 1; Router.render(); },
+    _page(tipo, page) { window._listState[tipo].page = page; Router.render(); },
+
+    async editar(tipo, id) {
+        const root = document.getElementById('modal-root');
+        root.innerHTML = `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"><div class="bg-[#141414] rounded-2xl border border-[#262626] p-8 text-center"><i class="fa-solid fa-circle-notch fa-spin text-2xl text-red-500"></i></div></div>`;
+        try {
+            const it = await Api.adminItem(tipo, id);
+            root.innerHTML = this._renderEditModal(tipo, it);
+        } catch (e) { root.innerHTML = `<div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"><div class="bg-[#141414] rounded-2xl p-6"><div class="text-red-400 mb-4">Erro: ${esc(e.message)}</div><button onclick="Views.fecharModal()" class="h-9 px-4 rounded-lg bg-[#1a1a1a] text-xs">Fechar</button></div></div>`; }
+    },
+
+    _renderEditModal(tipo, it) {
+        return `
+        <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 overflow-y-auto" onclick="if(event.target===this)Views.fecharModal()">
+            <div class="bg-[#141414] rounded-2xl w-full max-w-2xl border border-[#262626] my-8">
+                <div class="p-4 border-b border-[#262626] flex items-center justify-between"><div class="font-bold">${esc(it.titulo)}</div><button onclick="Views.fecharModal()" class="w-9 h-9 rounded-lg hover:bg-[#222]"><i class="fa-solid fa-xmark"></i></button></div>
+                <form onsubmit="Views.salvar(event, '${tipo}', '${it.iptv_id || it.id}')" class="p-5 space-y-4">
+                    <div><label class="text-xs text-gray-400 block mb-1">Título</label><input name="titulo" value="${esc(it.titulo || '')}" class="input-dark" required></div>
+                    <div class="grid grid-cols-2 gap-3"><div><label class="text-xs text-gray-400 block mb-1">Ano</label><input name="ano" type="number" value="${it.ano || ''}" class="input-dark"></div><div><label class="text-xs text-gray-400 block mb-1">Categoria</label><input name="categoria" value="${esc(it.categoria || '')}" class="input-dark"></div></div>
+                    ${tipo === 'filme' || tipo === 'canal' ? `<div><label class="text-xs text-gray-400 block mb-1">URL stream</label><input name="url" value="${esc(it.url || '')}" class="input-dark font-mono text-xs"></div>` : ''}
+                    ${tipo !== 'canal' ? `<div><label class="text-xs text-gray-400 block mb-1">Sinopse</label><textarea name="sinopse" rows="3" class="input-dark">${esc(it.sinopse || '')}</textarea></div>` : ''}
+                    <div class="flex gap-2"><button type="button" onclick="Views.fecharModal()" class="flex-1 h-10 rounded-lg bg-[#1a1a1a] border border-[#262626] text-xs">Cancelar</button><button type="submit" id="btn-salvar" class="flex-1 h-10 rounded-lg bg-red-600 text-xs font-bold"><i class="fa-solid fa-floppy-disk mr-1"></i> Salvar</button></div>
+                </form>
+            </div>
+        </div>`;
+    },
+
+    async salvar(ev, tipo, id) {
+        ev.preventDefault();
+        const form = ev.target;
+        const fd = new FormData();
+        ['titulo','ano','categoria','sinopse','url'].forEach(k => { const el = form.querySelector(`[name="${k}"]`); if (el && el.value) fd.append(k, el.value); });
+        const btn = document.getElementById('btn-salvar'); btn.disabled = true;
+        try {
+            const endpoint = tipo === 'filme' ? `/admin/filme/${id}` : tipo === 'serie' ? `/admin/serie/${id}` : `/admin/canal/${id}`;
+            const r = await fetch(API + endpoint, { method: 'PUT', body: fd });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const d = await r.json();
+            Toast.show(`✅ "${d.titulo}" salvo!`, 'success');
+            Views.fecharModal();
+            Router.render();
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); btn.disabled = false; }
+    },
+
+    fecharModal() { document.getElementById('modal-root').innerHTML = ''; },
+
+    async proxy(c) {
+        const p = await Api.proxyStats().catch(() => ({}));
+        c.innerHTML = `<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">${this.statCard('Slugs', fmt(p.slugs_carregados), 'fa-link', 'text-blue-400')}${this.statCard('Streams ativos', fmt(p.ativo_total), 'fa-play', 'text-green-400')}${this.statCard('Limite', fmt(p.limite_total), 'fa-gauge', 'text-yellow-400')}${this.statCard('IPs', fmt(p.ips_conectados), 'fa-network-wired', 'text-purple-400')}</div>`;
+    },
+
+    async sistema(c) {
+        const s = await Api.status().catch(() => ({}));
+        c.innerHTML = `<div class="stat-card rounded-xl p-4"><div class="text-xs font-semibold text-gray-400 uppercase mb-3">Estado</div><div class="space-y-2 text-xs"><div class="flex justify-between"><span class="text-gray-500">TMDB</span><span>${s.tmdb_ativo ? '✅ Ativo' : '❌ Off'}</span></div><div class="flex justify-between"><span class="text-gray-500">Clientes WS</span><span>${s.ws_clientes || 0}</span></div><div class="flex justify-between"><span class="text-gray-500">URL pública</span><span class="font-mono text-[10px]">${esc(s.public_base_url || '—')}</span></div></div></div>`;
+    },
+
+    statCard(label, value, icon, color) {
+        return `<div class="stat-card rounded-xl p-4"><div class="flex items-center justify-between mb-2"><div class="text-xs font-semibold text-gray-400 uppercase">${label}</div><i class="fa-solid ${icon} ${color}"></i></div><div class="text-2xl font-black">${value}</div></div>`;
+    }
+};
+
+const Actions = {
+    async wipeAll() {
+        if (!confirm('⚠️ Apagar TODO o catálogo (filmes, séries, canais)?\nClientes da API NÃO são afetados.')) return;
+        const btn = document.getElementById('btn-wipe-all'); const logsArea = document.getElementById('sync-logs-area');
+        btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Limpando...';
+        logsArea.classList.remove('hidden'); logsArea.innerHTML = '<div class="text-red-500 font-bold">LIMPANDO...</div>';
+        try {
+            const r = await Api.wipeAll();
+            if (!r.ok) throw new Error(r.msg);
+            Toast.show('🚨 Limpeza iniciada.', 'warn', 6000);
+            this.pollSync();
+        } catch (e) { Toast.show('Erro: ' + e.message, 'error'); btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-bomb"></i> Apagar Catálogo'; }
+    },
+    async pollSync() {
+        const timer = setInterval(async () => {
+            try {
+                const st = await Api.forceSyncStatus();
+                const logsArea = document.getElementById('sync-logs-area');
+                if (logsArea) { logsArea.innerHTML = st.logs.map(l => `<div>${esc(l)}</div>`).join(''); logsArea.scrollTop = logsArea.scrollHeight; }
+                if (!st.ativo) {
+                    clearInterval(timer);
+                    const btnW = document.getElementById('btn-wipe-all');
+                    if (btnW) { btnW.disabled = false; btnW.innerHTML = '<i class="fa-solid fa-bomb"></i> Apagar Catálogo'; }
+                    Toast.show('✅ Limpo!', 'success', 5000);
+                    Router.render();
+                }
+            } catch (e) { console.error(e); }
+        }, 2000);
+    }
+};
+
+function manualRefresh() { Router.render(); }
+
+async function pollStatus() {
+    try {
+        const s = await Api.status();
+        document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-green-400';
+        document.getElementById('status-label').textContent = `${s.stats.total_filmes} filmes`;
+    } catch {
+        document.getElementById('status-dot').className = 'w-2 h-2 rounded-full bg-red-500';
+        document.getElementById('status-label').textContent = 'Offline';
+    }
+}
+
+async function pollPedidos() {
+    try {
+        const r = await Api.pedidos();
+        const badge = document.getElementById('badge-pedidos');
+        if (badge) {
+            if (r.items && r.items.length > 0) { badge.textContent = r.items.length; badge.classList.remove('hidden'); }
+            else badge.classList.add('hidden');
+        }
+    } catch {}
+}
+
+window.addEventListener('hashchange', () => Router.handle());
+window.addEventListener('DOMContentLoaded', () => {
+    if (!window.location.hash) window.location.hash = '#dashboard';
+    else Router.handle();
+    conectarWS();
+    pollStatus();
+    pollPedidos();
+    setInterval(pollStatus, 15000);
+    setInterval(pollPedidos, 30000);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') Views.fecharModal(); });
+});
+</script>
+
+</body>
+</html>
