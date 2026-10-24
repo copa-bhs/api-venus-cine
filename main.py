@@ -850,7 +850,8 @@ class GoogleLoginPayload(BaseModel):
 
 @app.post("/v1/auth/google")
 def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
-    from firebase_admin import auth as fb_auth    init_firebase()
+    from firebase_admin import auth as fb_auth
+    init_firebase()
     try:
         decoded_token = fb_auth.verify_id_token(payload.idToken)
         email = decoded_token.get("email")
