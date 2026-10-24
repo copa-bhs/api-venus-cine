@@ -7,10 +7,9 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-<!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAvTri3e0L1r5Z60RexRLwdAD9GKD7aYas",
@@ -24,8 +23,6 @@
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
-  
-  // Força a tela de seleção de contas
   provider.setCustomParameters({ prompt: 'select_account' });
 
   window.loginComGoogle = async function() {
@@ -36,46 +33,30 @@
     }
   };
 
-  // ESTA É A MÁGICA: Fica escutando o Firebase.
-  // Sempre que o usuário logar (por redirect ou já estar cacheado), ele entra aqui.
-  window.ouvirFirebase = function() {
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Se chegou aqui, o Google logou com sucesso!
-        document.getElementById('view-inicial').innerHTML = '<div class="text-center"><i class="fa-solid fa-spinner fa-spin text-4xl text-red-600"></i><p class="mt-4 text-gray-400">Autenticando...</p></div>';
+  window.verificarRetornoGoogle = async function() {
+    try {
+      const result = await getRedirectResult(auth);
+      if (result && result.user) {
+        document.getElementById('view-inicial').innerHTML = '<div class="text-center"><i class="fa-solid fa-spinner fa-spin text-4xl text-red-600"></i><p class="mt-4 text-gray-400">Entrando...</p></div>';
         
-        try {
-          const idToken = await user.getIdToken();
-          
-          // Envia o token para o nosso backend Python criar a sessão
-          const res = await fetch('/v1/auth/google', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken: idToken })
-          });
-          
-          if (res.ok) {
-            // Backend criou o cookie. Recarrega a página para entrar no painel.
-            location.reload(); 
-          } else {
-            const erro = await res.json();
-            alert('Erro no servidor: ' + erro.detail);
-            await signOut(auth); // Se o backend falhar, desloga do Google para tentar de novo
-            location.reload();
-          }
-        } catch (e) {
-          alert('Erro: ' + e.message);
+        const idToken = await result.user.getIdToken();
+        const res = await fetch('/v1/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: idToken })
+        });
+        
+        if (res.ok) { 
+          location.reload(); 
+        } else { 
+          const erro = await res.json();
+          alert('Erro no servidor: ' + erro.detail); 
+          location.reload(); 
         }
-      } else {
-        // Se não tem usuário no Firebase, só verifica se já tem sessão no backend (email/senha)
-        if (typeof iniciarPainel === 'function') iniciarPainel();
       }
-    });
-  };
-
-  // Função para deslogar do Google também
-  window.deslogarGoogle = async function() {
-    try { await signOut(auth); } catch (e) {}
+    } catch (error) {
+      console.error("Erro no retorno do Google:", error);
+    }
   };
 </script>
 
@@ -246,7 +227,6 @@ const Api = {
     if (body) { opts.headers={'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
     const r = await fetch(path, opts);
     if (r.status === 401 && !path.includes('/auth/login') && !path.includes('/auth/me')) { 
-        if(typeof deslogarGoogle === 'function') deslogarGoogle();
         mostrarInicial(); 
         throw new Error('Sessão expirada'); 
     }
@@ -292,11 +272,7 @@ async function doCadastro(ev){
   finally{ btn.disabled=false; btn.innerHTML='Criar minha conta'; }
 }
 
-async function fazerLogout(){ 
-    await Api.post('/v1/auth/logout'); 
-    if (typeof deslogarGoogle === 'function') await deslogarGoogle();
-    mostrarInicial(); 
-}
+async function fazerLogout(){ await Api.post('/v1/auth/logout'); mostrarInicial(); }
 
 async function iniciarPainel(){
   try{
@@ -308,7 +284,6 @@ async function iniciarPainel(){
     document.getElementById('saldo-text').textContent = `${state.cliente.uso_mes} / ${state.plano.req_mes<0?'∞':state.plano.req_mes}`;
     Router.handle();
   }catch(e){ 
-    // Se o backend não tiver sessão, mostra a tela inicial (o onAuthStateChanged já vai saber se o Firebase tem login)
     mostrarInicial(); 
   }
 }
@@ -399,9 +374,8 @@ const Views = {
 
 window.addEventListener('hashchange', ()=>Router.handle());
 window.addEventListener('DOMContentLoaded', ()=>{
-    // Inicia o observador do Firebase. Ele decide se mostra o painel ou a tela de login.
-    window.ouvirFirebase();
-    // Tenta carregar o painel caso o usuário já esteja logado por email.
+    // Verifica o retorno do Google e inicia o painel
+    verificarRetornoGoogle();
     iniciarPainel();
 });
 </script>

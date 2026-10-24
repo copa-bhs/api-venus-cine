@@ -4,13 +4,11 @@ from pathlib import Path
 from typing import Optional
 import httpx
 
-# AQUI ESTÁ A CORREÇÃO: Removemos Response e JSONResponse daqui
 from fastapi import (
     FastAPI, HTTPException, Query, Request, UploadFile, File, Form,
     WebSocket, WebSocketDisconnect, Depends, Body,
 )
 from fastapi.middleware.cors import CORSMiddleware
-# E adicionamos eles aqui, que é o lugar correto
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -25,7 +23,7 @@ import tmdb
 from db import criar_tabelas, sincronizar, SessionLocal, get_db, engine, Base, Filme as FilmeDB, Serie as SerieDB, Canal as CanalDB, Slide as SlideDB
 from websocket_manager import manager
 from notificacoes import router as notificacoes_router
-from firebase_client import get_firestore
+from firebase_client import get_firestore, init_firebase
 
 import billing
 from billing import Cliente, Plano, ApiKey, UsoMensal, Fatura, seed_planos
@@ -89,6 +87,7 @@ def _card_app(item, tipo=None):
 async def startup():
     criar_tabelas()
     seed_planos()
+    init_firebase() # <-- ADICIONADO AQUI
     if load_index_from_disk():
         _rebuild_slugs(); sincronizar(_FILMES, _SERIES, _CANAIS); print(f"[✓] Carregado: {_stats()}")
 
@@ -853,6 +852,7 @@ class GoogleLoginPayload(BaseModel):
 @app.post("/v1/auth/google")
 def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
     from firebase_admin import auth as fb_auth
+    init_firebase() # <-- ADICIONADO AQUI PARA GARANTIR QUE O FIREBASE ESTEJA PRONTO
     try:
         decoded_token = fb_auth.verify_id_token(payload.idToken)
         email = decoded_token.get("email")
@@ -876,7 +876,8 @@ def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
     
     token = criar_token_sessao(c.id)
     resp = JSONResponse({"ok": True, "cliente_id": c.id})
-    resp.set_cookie("sessao", token, httponly=True, secure=False, samesite="lax", max_age=30*24*3600)
+    # secure=True para HTTPS
+    resp.set_cookie("sessao", token, httponly=True, secure=True, samesite="lax", max_age=30*24*3600)
     return resp
 
 if __name__ == "__main__":
