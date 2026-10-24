@@ -3,93 +3,151 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vênus API · Painel</title>
+<title>Vênus API · Painel do Cliente</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<!-- Firebase SDK para Login com Google -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAvTri3e0L1r5Z60RexRLwdAD9GKD7aYas",
+    authDomain: "apivenuscine.firebaseapp.com",
+    projectId: "apivenuscine",
+    storageBucket: "apivenuscine.firebasestorage.app",
+    messagingSenderId: "289112759962",
+    appId: "1:289112759962:web:ad2a56c64ff3a8b4f48923",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  window.loginComGoogle = async function() {
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      const idToken = await user.getIdToken();
+
+      const res = await fetch('/v1/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken: idToken })
+      });
+      
+      if (res.ok) { location.reload(); } 
+      else { alert('Erro ao logar com Google. Tente novamente.'); }
+    } catch (error) {
+      console.error(error);
+      alert('Falha no login: ' + error.message);
+    }
+  };
+</script>
+
 <style>
   * { box-sizing: border-box; }
   body { background:#0a0a0a; color:#fff; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; margin:0; }
-  ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
-  .sidebar-link.active{background:rgba(229,9,20,.12);color:#E50914;border-left:3px solid #E50914}
-  .sidebar-link:hover:not(.active){background:rgba(255,255,255,.04)}
-  .card{background:linear-gradient(135deg,#141414,#0f0f0f);border:1px solid #262626}
-  .pulse{animation:pulse 1.6s ease-in-out infinite}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-  .input-dark{width:100%;height:40px;padding:0 12px;background:#0a0a0a;border:1px solid #262626;border-radius:8px;color:#fff;font-size:14px;outline:none}
+  .input-dark{width:100%;height:40px;padding:0 12px;background:#0a0a0a;border:1px solid #262626;border-radius:8px;color:#fff;font-size:14px;outline:none;transition:.2s}
   .input-dark:focus{border-color:#E50914}
-  textarea.input-dark{height:auto;padding:10px 12px;resize:vertical}
-  .toast-slide{animation:slideIn .3s ease}@keyframes slideIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+  .btn-red{background:#E50914;transition:.2s;color:#fff;font-weight:bold;border-radius:8px}
+  .btn-red:hover{background:#ff0a16}
+  .btn-google{background:#fff;color:#333;transition:.2s;font-weight:bold;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .btn-google:hover{background:#eee}
+  .tab-btn { flex:1; padding:10px; text-align:center; font-size:13px; font-weight:bold; color:#666; cursor:pointer; border-bottom:2px solid transparent; transition:.2s; }
+  .tab-btn.active { color:#E50914; border-bottom-color:#E50914; }
+  .card { background:linear-gradient(135deg,#141414,#0f0f0f); border:1px solid #262626; }
+  .sidebar-link.active { background:rgba(229,9,20,.12); color:#E50914; border-left:3px solid #E50914; }
   .key-box{background:#0a0a0a;border:1px dashed #333;border-radius:8px;padding:10px 12px;font-family:ui-monospace,monospace;font-size:12px;word-break:break-all}
-  .copy-btn{transition:.15s}.copy-btn:hover{color:#E50914}
-  pre{background:#0a0a0a;border:1px solid #262626;border-radius:8px;padding:12px;overflow-x:auto;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-all}
-  .code-green{color:#22c55e}.code-blue{color:#60a5fa}.code-red{color:#f87171}.code-gray{color:#6b7280}.code-yellow{color:#facc15}
 </style>
 </head>
 <body>
 
-<!-- LOGIN OVERLAY -->
-<div id="login-screen" class="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center p-4">
-  <div class="card rounded-2xl w-full max-w-sm p-6">
-    <div class="text-center mb-6">
-      <div class="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center mx-auto mb-3" style="box-shadow:0 0 24px rgba(229,9,20,.5)">
+<!-- TELA DE LOGIN / CADASTRO -->
+<div id="login-screen" class="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center p-4 overflow-y-auto">
+  <div class="card rounded-2xl w-full max-w-sm p-0 overflow-hidden my-4 shadow-2xl">
+    <div class="text-center pt-8 pb-2">
+      <div class="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center mx-auto mb-3" style="box-shadow:0 0 24px rgba(229,9,20,.5)">
         <span class="text-3xl font-black italic">V</span>
       </div>
       <h1 class="text-xl font-black">Vênus API</h1>
       <p class="text-xs text-gray-500">Painel do Cliente</p>
     </div>
-    <div id="login-erro" class="hidden mb-3 text-xs text-red-400 bg-red-600/10 border border-red-600/30 rounded-lg p-2"></div>
-    <form onsubmit="doLogin(event)" class="space-y-3">
-      <div>
-        <label class="text-xs text-gray-400 block mb-1">Email</label>
-        <input id="login-email" type="email" class="input-dark" required placeholder="voce@empresa.com">
+
+    <div class="flex border-b border-[#262626] px-2 mt-4">
+      <div class="tab-btn active" id="tab-login" onclick="mudarAba('login')">Entrar</div>
+      <div class="tab-btn" id="tab-cadastro" onclick="mudarAba('cadastro')">Criar conta</div>
+    </div>
+
+    <div class="p-6">
+      <div id="auth-erro" class="hidden mb-3 text-xs text-red-400 bg-red-600/10 border border-red-600/30 rounded-lg p-2 text-center"></div>
+
+      <!-- LOGIN -->
+      <form id="form-login" onsubmit="doLogin(event)" class="space-y-3">
+        <div><input id="login-email" type="email" class="input-dark" required placeholder="E-mail"></div>
+        <div><input id="login-senha" type="password" class="input-dark" required placeholder="Senha"></div>
+        <button type="submit" id="btn-login" class="w-full h-11 btn-red">Entrar</button>
+      </form>
+
+      <!-- CADASTRO -->
+      <form id="form-cadastro" onsubmit="doCadastro(event)" class="space-y-3 hidden">
+        <div><input id="cad-nome" type="text" class="input-dark" required placeholder="Nome completo"></div>
+        <div><input id="cad-email" type="email" class="input-dark" required placeholder="E-mail"></div>
+        <div><input id="cad-senha" type="password" class="input-dark" required minlength="6" placeholder="Senha (mín. 6)"></div>
+        <button type="submit" id="btn-cadastro" class="w-full h-11 btn-red">Criar conta grátis</button>
+      </form>
+
+      <div class="relative flex py-4 items-center">
+          <div class="flex-grow border-t border-[#262626]"></div>
+          <span class="flex-shrink-0 mx-4 text-gray-500 text-xs">ou</span>
+          <div class="flex-grow border-t border-[#262626]"></div>
       </div>
-      <div>
-        <label class="text-xs text-gray-400 block mb-1">Senha</label>
-        <input id="login-senha" type="password" class="input-dark" required placeholder="••••••••">
-      </div>
-      <button type="submit" id="btn-login" class="w-full h-11 rounded-lg bg-red-600 hover:bg-red-700 text-sm font-bold">Entrar</button>
-    </form>
-    <p class="text-[10px] text-gray-500 text-center mt-4">Não tem conta? Peça acesso em <a href="mailto:contato@venuscine.com" class="text-red-400">contato@venuscine.com</a></p>
+
+      <button onclick="window.loginComGoogle()" class="w-full h-11 btn-google">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5">
+        Entrar com Google
+      </button>
+      
+      <p class="text-[10px] text-gray-500 text-center mt-4">1.000 requisições grátis por 7 dias. Sem cartão.</p>
+    </div>
   </div>
 </div>
 
-<!-- APP -->
+<!-- PAINEL (SÓ APARECE SE ESTIVER LOGADO) -->
 <div id="app" class="hidden">
-<div class="flex min-h-screen">
-  <aside id="sidebar" class="w-60 bg-[#0f0f0f] border-r border-[#262626] flex flex-col fixed lg:static inset-y-0 left-0 z-40 -translate-x-full lg:translate-x-0 transition-transform">
-    <div class="p-4 border-b border-[#262626] flex items-center gap-2">
-      <span class="text-2xl font-black italic text-red-600" style="text-shadow:0 0 12px rgba(229,9,20,.7)">V</span>
-      <div>
-        <div class="text-sm font-bold">Vênus API</div>
-        <div class="text-[10px] text-gray-500">Painel do Cliente</div>
+  <div class="flex min-h-screen">
+    <!-- SIDEBAR -->
+    <aside class="w-60 bg-[#0f0f0f] border-r border-[#262626] flex flex-col fixed inset-y-0 left-0 z-40">
+      <div class="p-4 border-b border-[#262626] flex items-center gap-2">
+        <span class="text-2xl font-black italic text-red-600">V</span>
+        <div>
+          <div class="text-sm font-bold">Vênus API</div>
+          <div class="text-[10px] text-gray-500">Painel do Cliente</div>
+        </div>
       </div>
-    </div>
-    <nav class="flex-1 py-3 overflow-y-auto">
-      <a href="#dashboard" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="dashboard"><i class="fa-solid fa-gauge w-4 text-center"></i> Dashboard</a>
-      <a href="#keys" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="keys"><i class="fa-solid fa-key w-4 text-center"></i> Minhas API Keys</a>
-      <a href="#plano" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="plano"><i class="fa-solid fa-crown w-4 text-center"></i> Meu Plano</a>
-      <a href="#faturamento" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="faturamento"><i class="fa-solid fa-file-invoice-dollar w-4 text-center"></i> Faturamento</a>
-      <a href="#docs" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="docs"><i class="fa-solid fa-book w-4 text-center"></i> Documentação</a>
-    </nav>
-    <div class="p-4 border-t border-[#262626] space-y-2">
-      <div id="plan-label" class="text-[10px] text-gray-400">Carregando...</div>
-      <button onclick="fazerLogout()" class="w-full h-8 rounded bg-red-600/10 border border-red-600/30 text-red-400 text-[10px] font-bold hover:bg-red-600/20">Sair</button>
-    </div>
-  </aside>
-  <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-30 hidden lg:hidden"></div>
-  <div class="flex-1 flex flex-col min-w-0">
-    <header class="sticky top-0 z-20 bg-[#0a0a0a]/95 backdrop-blur border-b border-[#262626] px-4 py-3 flex items-center gap-3">
-      <button onclick="toggleSidebar()" class="lg:hidden w-9 h-9 rounded-lg bg-[#141414] border border-[#262626] flex items-center justify-center"><i class="fa-solid fa-bars text-sm"></i></button>
-      <h1 id="page-title" class="text-lg font-bold flex-1">Dashboard</h1>
-      <div class="h-9 px-3 rounded-lg bg-[#141414] border border-[#262626] flex items-center gap-2 text-xs">
-        <i class="fa-solid fa-bolt text-yellow-400"></i><span id="saldo-text">--</span>
+      <nav class="flex-1 py-3">
+        <a href="#dashboard" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="dashboard"><i class="fa-solid fa-gauge w-4"></i> Dashboard</a>
+        <a href="#keys" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="keys"><i class="fa-solid fa-key w-4"></i> Minhas API Keys</a>
+        <a href="#plano" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="plano"><i class="fa-solid fa-crown w-4"></i> Meu Plano</a>
+        <a href="#docs" class="sidebar-link flex items-center gap-3 px-4 py-2.5 text-sm text-gray-400 border-l-[3px] border-transparent" data-route="docs"><i class="fa-solid fa-book w-4"></i> Documentação</a>
+      </nav>
+      <div class="p-4 border-t border-[#262626]">
+        <button onclick="fazerLogout()" class="w-full h-8 rounded bg-red-600/10 text-red-500 text-xs font-bold hover:bg-red-600/20">Sair</button>
       </div>
-    </header>
-    <main id="content" class="flex-1 p-4 lg:p-6 overflow-x-hidden"></main>
+    </aside>
+
+    <!-- CONTEÚDO -->
+    <div class="flex-1 ml-60 flex flex-col">
+      <header class="bg-[#0a0a0a] border-b border-[#262626] px-6 py-4 flex items-center justify-between">
+        <h1 id="page-title" class="text-lg font-bold">Dashboard</h1>
+        <div class="text-xs bg-[#141414] border border-[#262626] px-3 py-1.5 rounded-lg"><i class="fa-solid fa-bolt text-yellow-400 mr-1"></i> <span id="saldo-text">--</span></div>
+      </header>
+      <main id="content" class="flex-1 p-6"></main>
+    </div>
   </div>
 </div>
-</div>
 
-<div id="toast-root" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
 <div id="modal-root"></div>
 
 <script>
@@ -97,22 +155,15 @@ const state = { cliente:null, plano:null, chaves:[] };
 
 // ============ HELPERS ============
 const Toast = {
-  show(msg, type='info', dur=3000) {
-    const c={info:'border-blue-500',success:'border-green-500',error:'border-red-500',warn:'border-yellow-500'};
-    const i={info:'fa-circle-info',success:'fa-circle-check',error:'fa-circle-exclamation',warn:'fa-triangle-exclamation'};
+  show(msg, type='info') {
     const el=document.createElement('div');
-    el.className=`toast-slide bg-[#141414] border-l-4 ${c[type]||c.info} rounded-lg px-4 py-3 text-sm shadow-2xl min-w-[260px] max-w-[380px] flex items-start gap-3`;
-    el.innerHTML=`<i class="fa-solid ${i[type]||i.info} mt-0.5"></i><div class="flex-1">${msg}</div>`;
-    document.getElementById('toast-root').appendChild(el);
-    setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},dur);
+    el.className=`fixed bottom-4 right-4 z-50 bg-[#141414] border-l-4 ${type==='error'?'border-red-500':'border-green-500'} text-white px-4 py-3 rounded-lg shadow-2xl text-sm`;
+    el.textContent=msg; document.body.appendChild(el);
+    setTimeout(()=>el.remove(), 3000);
   }
 };
 const esc = (s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = (n)=>Number(n||0).toLocaleString('pt-BR');
-const copy = async (txt,msg='Copiado!')=>{try{await navigator.clipboard.writeText(txt);Toast.show(msg,'success',1500)}catch{Toast.show('Falha ao copiar','error')}};
-const fmtData=(s)=>{if(!s)return '—';try{return new Date(s).toLocaleDateString('pt-BR')}catch{return s}};
-const diasRestantes=(s)=>{if(!s)return 0;const d=Math.ceil((new Date(s)-Date.now())/86400000);return Math.max(0,d)};
-function toggleSidebar(){const sb=document.getElementById('sidebar');const ov=document.getElementById('sidebar-overlay');sb.classList.toggle('-translate-x-full');ov.classList.toggle('hidden');}
+const copy = async (txt,msg='Copiado!')=>{try{await navigator.clipboard.writeText(txt);Toast.show(msg)}catch{Toast.show('Erro ao copiar','error')}};
 
 // ============ API ============
 const Api = {
@@ -121,364 +172,177 @@ const Api = {
     if (body) { opts.headers={'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
     const r = await fetch(path, opts);
     if (r.status === 401 && !path.includes('/auth/login')) { mostrarLogin(); throw new Error('Sessão expirada'); }
-    if (!r.ok) { let d='Erro'; try{ d=(await r.json()).detail||r.statusText }catch{} throw new Error(d); }
+    if (!r.ok) { let d='Erro'; try{ d=(await r.json()).detail }catch{} throw new Error(d); }
     return r.json();
   },
   get(p){ return this.req('GET',p); },
   post(p,b){ return this.req('POST',p,b); },
-  del(p){ return this.req('DELETE',p); },
+  del(p){ return this.req('DELETE',p); }
 };
 
-// ============ LOGIN ============
 function mostrarLogin(){ document.getElementById('login-screen').classList.remove('hidden'); document.getElementById('app').classList.add('hidden'); }
 function esconderLogin(){ document.getElementById('login-screen').classList.add('hidden'); document.getElementById('app').classList.remove('hidden'); }
+
+function mudarAba(aba){
+  document.getElementById('tab-login').classList.toggle('active', aba==='login');
+  document.getElementById('tab-cadastro').classList.toggle('active', aba==='cadastro');
+  document.getElementById('form-login').classList.toggle('hidden', aba!=='login');
+  document.getElementById('form-cadastro').classList.toggle('hidden', aba!=='cadastro');
+  document.getElementById('auth-erro').classList.add('hidden');
+}
 
 async function doLogin(ev){
   ev.preventDefault();
   const btn = document.getElementById('btn-login');
-  const erro = document.getElementById('login-erro');
-  erro.classList.add('hidden');
-  btn.disabled=true; btn.innerHTML='<i class="fa-solid fa-circle-notch fa-spin"></i> Entrando...';
+  btn.disabled=true; btn.innerHTML='Entrando...';
   try{
     await Api.post('/v1/auth/login',{ email:document.getElementById('login-email').value, senha:document.getElementById('login-senha').value });
-    await iniciarPainel();
-  }catch(e){
-    erro.textContent = e.message; erro.classList.remove('hidden');
-  }finally{
-    btn.disabled=false; btn.innerHTML='Entrar';
-  }
+    iniciarPainel();
+  }catch(e){ document.getElementById('auth-erro').textContent = e.message; document.getElementById('auth-erro').classList.remove('hidden'); }
+  finally{ btn.disabled=false; btn.innerHTML='Entrar'; }
 }
 
-async function fazerLogout(){
-  try{ await Api.post('/v1/auth/logout'); }catch{}
-  mostrarLogin();
+async function doCadastro(ev){
+  ev.preventDefault();
+  const btn = document.getElementById('btn-cadastro');
+  btn.disabled=true; btn.innerHTML='Criando...';
+  try{
+    const r = await Api.post('/v1/auth/register',{ nome:document.getElementById('cad-nome').value, email:document.getElementById('cad-email').value, senha:document.getElementById('cad-senha').value });
+    document.getElementById('modal-root').innerHTML = `
+      <div class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4">
+        <div class="bg-[#141414] rounded-2xl w-full max-w-lg border border-[#262626] p-6 text-center">
+          <i class="fa-solid fa-key text-4xl text-green-400 mb-3"></i>
+          <h3 class="text-lg font-bold mb-1">Conta criada!</h3>
+          <p class="text-xs text-gray-400 mb-4">Sua API Key inicial foi gerada.</p>
+          <div class="key-box text-green-400 mb-4">${esc(r.api_key)}</div>
+          <p class="text-xs text-red-400 mb-4 font-bold">Guarde agora. Não mostraremos de novo!</p>
+          <button onclick="copy('${esc(r.api_key)}','Copiado!')" class="w-full h-10 btn-red">Copiar e Entrar</button>
+        </div>
+      </div>`;
+    setTimeout(()=>{ document.getElementById('modal-root').innerHTML=''; iniciarPainel(); }, 4000);
+  }catch(e){ document.getElementById('auth-erro').textContent = e.message; document.getElementById('auth-erro').classList.remove('hidden'); }
+  finally{ btn.disabled=false; btn.innerHTML='Criar conta grátis'; }
 }
+
+async function fazerLogout(){ await Api.post('/v1/auth/logout'); mostrarLogin(); }
 
 async function iniciarPainel(){
   try{
-    state.cliente = await Api.me();
+    state.cliente = await Api.get('/v1/auth/me');
     state.plano = state.cliente.plano;
     esconderLogin();
-    atualizarLabels();
+    document.getElementById('saldo-text').textContent = `${state.cliente.uso_mes} / ${state.plano.req_mes<0?'∞':state.plano.req_mes}`;
     Router.handle();
-  }catch(e){
-    mostrarLogin();
-  }
-}
-
-function atualizarLabels(){
-  const el = document.getElementById('saldo-text');
-  if (el && state.plano) {
-    const usadas = state.cliente.uso_mes || 0;
-    const total = state.plano.req_mes;
-    el.textContent = total < 0 ? `${fmt(usadas)} / ilimitado` : `${fmt(usadas)} / ${fmt(total)}`;
-  }
-  const pl = document.getElementById('plan-label');
-  if (pl && state.plano) pl.innerHTML = `<span class="text-yellow-400 font-bold">${esc(state.plano.nome)}</span> · expira ${fmtData(state.plano.expira_em)}`;
+  }catch(e){ mostrarLogin(); }
 }
 
 // ============ ROUTER ============
 const Router = {
   current:'dashboard',
-  go(r){ location.hash='#'+r; },
   handle(){
     const h = location.hash.replace('#','')||'dashboard';
     this.current = h;
     document.querySelectorAll('.sidebar-link').forEach(a=>a.classList.toggle('active', a.dataset.route===h));
-    const t = {dashboard:'Dashboard',keys:'API Keys',plano:'Meu Plano',faturamento:'Faturamento',docs:'Documentação'};
-    document.getElementById('page-title').textContent = t[h]||h;
+    const t={dashboard:'Dashboard',keys:'API Keys',plano:'Meu Plano',docs:'Documentação'};
+    document.getElementById('page-title').textContent=t[h]||h;
     this.render();
-    if (innerWidth<1024) toggleSidebar();
   },
   async render(){
     const c = document.getElementById('content');
-    c.innerHTML = `<div class="flex items-center justify-center h-64 text-gray-500"><i class="fa-solid fa-circle-notch fa-spin text-2xl"></i></div>`;
+    c.innerHTML = '<div class="text-center py-10"><i class="fa-solid fa-spinner fa-spin text-2xl text-red-600"></i></div>';
     try{
-      if (this.current==='dashboard') await Views.dashboard(c);
-      else if (this.current==='keys') await Views.keys(c);
-      else if (this.current==='plano') await Views.plano(c);
-      else if (this.current==='faturamento') await Views.faturamento(c);
-      else if (this.current==='docs') await Views.docs(c);
-    }catch(e){ c.innerHTML=`<div class="text-center py-16 text-red-400">Erro: ${esc(e.message)}</div>`; }
+      if(this.current==='dashboard') await Views.dashboard(c);
+      else if(this.current==='keys') await Views.keys(c);
+      else if(this.current==='plano') await Views.plano(c);
+      else if(this.current==='docs') await Views.docs(c);
+    }catch(e){ c.innerHTML = `<div class="text-red-400 text-center">Erro: ${e.message}</div>`; }
   }
 };
 
 // ============ VIEWS ============
 const Views = {
-
   async dashboard(c){
-    const uso = await Api.get('/v1/usage');
-    const plano = state.plano;
-    const pct = plano.req_mes>0 ? Math.min(100,(uso.req_total/plano.req_mes)*100) : 0;
-    const pctColor = pct>90?'bg-red-500':pct>70?'bg-yellow-500':'bg-green-500';
-    const dias = diasRestantes(plano.expira_em);
-    state.chaves = (await Api.get('/v1/auth/keys')).items || [];
-
+    const pct = state.plano.req_mes>0 ? Math.min(100,(state.cliente.uso_mes/state.plano.req_mes)*100) : 0;
     c.innerHTML = `
-      ${dias<=5?`<div class="mb-4 p-4 rounded-xl bg-yellow-600/10 border border-yellow-600/40 flex items-center gap-3">
-        <i class="fa-solid fa-triangle-exclamation text-yellow-400 text-xl"></i>
-        <div class="flex-1"><div class="text-sm font-bold text-yellow-400">Seu plano expira em ${dias} dia(s)</div>
-        <div class="text-xs text-gray-400">Renove para não interromper suas chamadas.</div></div>
-        <button onclick="Router.go('plano')" class="h-9 px-4 rounded-lg bg-yellow-600 text-black text-xs font-bold">Renovar</button>
-      </div>`:''}
-
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        ${cardStat('Requisições (mês)', fmt(uso.req_total), 'fa-bolt', 'text-blue-400')}
-        ${cardStat('Cota do plano', plano.req_mes<0?'Ilimitado':fmt(plano.req_mes), 'fa-gauge', 'text-purple-400')}
-        ${cardStat('Bloqueadas', fmt(uso.req_bloqueadas), 'fa-ban', 'text-red-400')}
-        ${cardStat('Plano', plano.nome, 'fa-crown', 'text-yellow-400')}
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="card p-4 rounded-xl"><div class="text-xs text-gray-400 mb-1">Requisições</div><div class="text-2xl font-black">${state.cliente.uso_mes}</div></div>
+        <div class="card p-4 rounded-xl"><div class="text-xs text-gray-400 mb-1">Cota do Plano</div><div class="text-2xl font-black">${state.plano.req_mes<0?'Ilimitado':state.plano.req_mes}</div></div>
+        <div class="card p-4 rounded-xl"><div class="text-xs text-gray-400 mb-1">Plano Atual</div><div class="text-2xl font-black text-yellow-400 uppercase">${state.plano.nome}</div></div>
+        <div class="card p-4 rounded-xl"><div class="text-xs text-gray-400 mb-1">Expira em</div><div class="text-sm font-bold mt-2">${new Date(state.plano.expira_em).toLocaleDateString()}</div></div>
       </div>
-
-      <div class="card rounded-xl p-5 mb-6">
-        <div class="flex items-center justify-between mb-3">
-          <div class="text-sm font-bold">Consumo do mês</div>
-          <div class="text-xs text-gray-500">${pct.toFixed(1)}% da cota</div>
-        </div>
-        <div class="h-3 bg-[#1a1a1a] rounded-full overflow-hidden">
-          <div class="h-full ${pctColor} transition-all" style="width:${pct}%"></div>
-        </div>
-        <div class="mt-3 grid grid-cols-3 text-xs text-gray-500">
-          <div><i class="fa-solid fa-calendar mr-1"></i>Expira em ${dias}d</div>
-          <div class="text-center"><i class="fa-solid fa-hourglass mr-1"></i>${fmt(uso.req_total)}/${plano.req_mes<0?'∞':fmt(plano.req_mes)}</div>
-          <div class="text-right"><i class="fa-solid fa-shield mr-1"></i>${plano.req_por_segundo} req/s</div>
-        </div>
-      </div>
-
-      <div class="grid md:grid-cols-2 gap-4">
-        <div class="card rounded-xl p-5">
-          <div class="text-sm font-bold mb-3"><i class="fa-solid fa-key text-red-500 mr-2"></i>Suas chaves</div>
-          ${state.chaves.length===0?`<div class="text-xs text-gray-500 mb-3">Nenhuma chave.</div>
-            <button onclick="Router.go('keys')" class="h-9 px-4 rounded-lg bg-red-600 text-xs font-bold">Criar primeira</button>`:`
-          <div class="space-y-2">${state.chaves.slice(0,3).map(k=>`
-            <div class="flex items-center justify-between bg-[#0a0a0a] border border-[#262626] rounded-lg p-2.5">
-              <div class="flex-1 min-w-0"><div class="text-xs font-bold">${esc(k.nome||'—')}</div>
-              <div class="text-[10px] text-gray-500 font-mono">${esc(k.prefixo)}••••</div></div>
-              <div class="text-[10px] ${k.ativa?'text-green-400':'text-red-400'}">${k.ativa?'ativa':'revogada'}</div>
-            </div>`).join('')}</div>
-          <button onclick="Router.go('keys')" class="mt-3 text-xs text-red-400 hover:text-red-300">Ver todas →</button>`}
-        </div>
-        <div class="card rounded-xl p-5">
-          <div class="text-sm font-bold mb-3"><i class="fa-solid fa-code text-blue-500 mr-2"></i>Comece agora</div>
-          <pre class="text-[11px]"><span class="code-gray"># Teste sua API</span>
-<span class="code-green">curl</span> <span class="code-yellow">"https://seudominio.com/v1/filmes?page=1"</span> \\
-  <span class="code-blue">-H</span> <span class="code-green">"X-API-Key: ${state.chaves[0]?esc(state.chaves[0].prefixo)+'...':'SUA_CHAVE'}"</span></pre>
-          <button onclick="Router.go('docs')" class="mt-3 text-xs text-blue-400">Ver documentação →</button>
-        </div>
+      <div class="card p-5 rounded-xl mb-6">
+        <div class="text-sm font-bold mb-3">Consumo</div>
+        <div class="h-3 bg-[#1a1a1a] rounded overflow-hidden"><div class="h-full bg-red-600" style="width:${pct}%"></div></div>
       </div>
     `;
   },
 
   async keys(c){
-    state.chaves = (await Api.get('/v1/auth/keys')).items || [];
+    const data = await Api.get('/v1/auth/keys');
     c.innerHTML = `
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h2 class="text-xl font-black">🔑 Minhas API Keys</h2>
-          <p class="text-xs text-gray-500 mt-1">Use no header <code class="text-red-400">X-API-Key</code>.</p>
-        </div>
-        <button onclick="Views.novaChave()" class="h-10 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold flex items-center gap-2"><i class="fa-solid fa-plus"></i> Nova chave</button>
+      <div class="flex justify-between mb-6">
+        <h2 class="text-lg font-bold">Suas Chaves</h2>
+        <button onclick="Views.novaChave()" class="h-10 px-4 btn-red text-xs">+ Nova Chave</button>
       </div>
-      ${state.chaves.length===0?`
-        <div class="card rounded-xl p-12 text-center">
-          <i class="fa-solid fa-key text-5xl text-gray-600 mb-4"></i>
-          <h3 class="text-lg font-bold mb-2">Nenhuma chave ainda</h3>
-          <p class="text-xs text-gray-500 mb-4">Crie sua primeira chave para usar a API.</p>
-          <button onclick="Views.novaChave()" class="h-10 px-6 rounded-lg bg-red-600 text-sm font-bold">Criar chave</button>
-        </div>`:`
-        <div class="space-y-3">${state.chaves.map(k=>`
-          <div class="card rounded-xl p-4 ${!k.ativa?'opacity-60':''}">
-            <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-lg ${k.ativa?'bg-green-600/20 text-green-400':'bg-red-600/20 text-red-400'} flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-key"></i></div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <div class="text-sm font-bold">${esc(k.nome||'—')}</div>
-                  ${k.ativa?'<span class="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-bold">ATIVA</span>':'<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-bold">REVOGADA</span>'}
-                </div>
-                <div class="key-box flex items-center justify-between gap-2">
-                  <span class="text-gray-300">${esc(k.prefixo)}<span class="text-gray-600">••••••••••••••••••</span></span>
-                  <button onclick="copy('${esc(k.prefixo)}','Copiado. A chave completa você só vê uma vez.')" class="copy-btn text-gray-500"><i class="fa-solid fa-copy text-xs"></i></button>
-                </div>
-                <div class="text-[10px] text-gray-500 mt-2 flex flex-wrap gap-3">
-                  <span><i class="fa-regular fa-calendar mr-1"></i>${fmtData(k.criada_em)}</span>
-                  <span><i class="fa-regular fa-clock mr-1"></i>Últ. uso ${k.ultimo_uso?fmtData(k.ultimo_uso):'—'}</span>
-                </div>
-              </div>
-              ${k.ativa?`<button onclick="Views.revogar(${k.id})" class="w-9 h-9 rounded-lg bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white"><i class="fa-solid fa-trash"></i></button>`:''}
+      <div class="space-y-3">
+        ${data.items.map(k=>`
+          <div class="card p-4 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="text-sm font-bold">${esc(k.nome)}</div>
+              <div class="text-[10px] text-gray-500 font-mono mt-1">${esc(k.prefixo)}••••••••</div>
             </div>
-          </div>`).join('')}</div>`}
+            ${k.ativa ? `<button onclick="Views.revogar(${k.id})" class="text-xs text-red-500 font-bold">Revogar</button>` : '<span class="text-xs text-gray-600">Inativa</span>'}
+          </div>
+        `).join('')}
+      </div>
     `;
   },
-
   async novaChave(){
-    const nome = prompt('Nome para esta chave (ex: "produção"):');
+    const nome = prompt("Nome da chave (ex: Produção):");
     if(!nome) return;
-    try{
-      const r = await Api.post('/v1/auth/keys',{nome});
-      Views.mostrarChaveNova(r.chave, nome);
-      Router.render();
-    }catch(e){ Toast.show('Erro: '+e.message,'error'); }
+    const r = await Api.post('/v1/auth/keys',{nome});
+    alert("Sua nova chave (copie agora):\n\n" + r.chave);
+    Router.render();
   },
-
-  mostrarChaveNova(chave, nome){
-    document.getElementById('modal-root').innerHTML = `
-      <div class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-        <div class="bg-[#141414] rounded-2xl w-full max-w-lg border border-[#262626] p-6">
-          <div class="text-center mb-4">
-            <div class="w-16 h-16 rounded-full bg-green-600/20 flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-check text-green-400 text-2xl"></i></div>
-            <h3 class="text-lg font-bold">Chave criada: "${esc(nome)}"</h3>
-            <p class="text-xs text-red-400 mt-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Copie agora. Não vamos mostrar de novo!</p>
-          </div>
-          <div class="key-box text-green-400 mb-4">${esc(chave)}</div>
-          <div class="flex gap-2">
-            <button onclick="copy('${esc(chave)}','Chave copiada!')" class="flex-1 h-10 rounded-lg bg-green-600 hover:bg-green-700 text-xs font-bold"><i class="fa-solid fa-copy mr-1"></i> Copiar</button>
-            <button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 h-10 rounded-lg bg-[#1a1a1a] border border-[#262626] text-xs">Fechar</button>
-          </div>
-        </div>
-      </div>`;
-  },
-
   async revogar(id){
-    if(!confirm('Revogar esta chave? Clientes usando param imediatamente.')) return;
-    try{ await Api.del('/v1/auth/keys/'+id); Toast.show('Chave revogada','success'); Router.render(); }
-    catch(e){ Toast.show('Erro: '+e.message,'error'); }
+    if(!confirm('Revogar chave?')) return;
+    await Api.del('/v1/auth/keys/'+id);
+    Router.render();
   },
 
   async plano(c){
-    const planos = (await Api.get('/v1/plans')).items || [];
-    const atualSlug = state.plano.slug;
+    const planos = await Api.get('/v1/plans');
     c.innerHTML = `
-      <div class="mb-6">
-        <h2 class="text-xl font-black">👑 Meu Plano</h2>
-        <p class="text-xs text-gray-500 mt-1">Atual: <b class="text-yellow-400">${esc(state.plano.nome)}</b> · expira ${fmtData(state.plano.expira_em)} (${diasRestantes(state.plano.expira_em)} dias)</p>
-      </div>
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        ${planos.map(p=>{
-          const atual = p.slug===atualSlug;
-          const destaque = p.slug==='pro';
-          return `
-            <div class="card rounded-xl p-5 ${destaque?'border-red-600/40 relative':''} ${atual?'ring-2 ring-yellow-500':''}">
-              ${destaque?'<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-red-600 text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap">MAIS POPULAR</div>':''}
-              ${atual?'<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-[10px] font-bold px-3 py-1 rounded-full whitespace-nowrap">SEU PLANO</div>':''}
-              <div class="text-xs text-gray-500 uppercase font-bold mb-2 mt-2">${esc(p.nome)}</div>
-              <div class="text-3xl font-black mb-1">R$ ${p.preco_mensal}<span class="text-xs text-gray-500">/mês</span></div>
-              <div class="h-px bg-[#262626] my-4"></div>
-              <ul class="text-xs space-y-2 mb-4">
-                <li><i class="fa-solid fa-check text-green-400 mr-1"></i>${p.req_mes<0?'Ilimitadas':fmt(p.req_mes)+' req/mês'}</li>
-                <li><i class="fa-solid fa-check text-green-400 mr-1"></i>${p.req_por_segundo} req/s</li>
-                <li><i class="fa-solid ${p.proxy_habilitado?'fa-check text-green-400':'fa-xmark text-gray-600'} mr-1"></i>Proxy de stream ${p.proxy_habilitado?`(${p.proxy_ip_limite||'∞'} IPs)`:''}</li>
-              </ul>
-              ${atual?`<button disabled class="w-full h-10 rounded-lg bg-[#1a1a1a] text-gray-500 text-xs font-bold cursor-not-allowed">Plano atual</button>`
-                     :`<button onclick="Views.assinar('${p.slug}')" class="w-full h-10 rounded-lg ${destaque?'bg-red-600 hover:bg-red-700':'bg-[#1a1a1a] hover:bg-[#222] border border-[#333]'} text-xs font-bold">${planos.findIndex(x=>x.slug===atualSlug)<planos.findIndex(x=>x.slug===p.slug)?'Fazer upgrade':'Escolher'}</button>`}
-            </div>`;
-        }).join('')}
+        ${planos.items.map(p=>`
+          <div class="card p-5 rounded-xl text-center">
+            <div class="text-sm font-bold text-red-500 mb-2">${esc(p.nome)}</div>
+            <div class="text-2xl font-black mb-4">R$ ${p.preco_mensal}</div>
+            <button onclick="Toast.show('Pagamento em breve','info')" class="w-full h-10 border border-[#333] hover:bg-[#1a1a1a] rounded-lg text-xs">Assinar</button>
+          </div>
+        `).join('')}
       </div>
-    `;
-  },
-
-  async assinar(slug){
-    if(!confirm(`Assinar o plano "${slug}"? Você será redirecionado ao checkout.`)) return;
-    try{
-      const r = await Api.post('/v1/billing/checkout',{plano:slug});
-      if(r.url) window.location.href = r.url;
-      else Toast.show('Erro ao criar checkout','error');
-    }catch(e){ Toast.show('Erro: '+e.message,'error'); }
-  },
-
-  async faturamento(c){
-    const data = (await Api.get('/v1/billing/invoices')).items || [];
-    c.innerHTML = `
-      <h2 class="text-xl font-black mb-1">💳 Faturamento</h2>
-      <p class="text-xs text-gray-500 mb-6">Histórico de cobranças.</p>
-      ${data.length===0?`<div class="card rounded-xl p-12 text-center"><i class="fa-solid fa-file-invoice text-5xl text-gray-600 mb-4"></i><p class="text-sm text-gray-500">Nenhuma fatura ainda.</p></div>`:`
-        <div class="card rounded-xl overflow-hidden">
-          <table class="w-full text-sm">
-            <thead class="bg-[#0f0f0f] border-b border-[#262626] text-xs text-gray-400 uppercase"><tr>
-              <th class="text-left px-4 py-3">Data</th><th class="text-left px-4 py-3">Período</th>
-              <th class="text-left px-4 py-3">Valor</th><th class="text-left px-4 py-3">Status</th></tr></thead>
-            <tbody>
-              ${data.map(f=>`<tr class="border-b border-[#1f1f1f]">
-                <td class="px-4 py-3">${fmtData(f.criada_em)}</td>
-                <td class="px-4 py-3 text-gray-400">${esc(f.periodo||'—')}</td>
-                <td class="px-4 py-3 font-bold">R$ ${(f.valor||0).toFixed(2)}</td>
-                <td class="px-4 py-3"><span class="text-[10px] px-2 py-1 rounded ${f.status==='paga'?'bg-green-500/20 text-green-400':'bg-yellow-500/20 text-yellow-400'}">${esc((f.status||'').toUpperCase())}</span></td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`}
     `;
   },
 
   async docs(c){
-    state.chaves = (await Api.get('/v1/auth/keys')).items || [];
-    const k = state.chaves.find(x=>x.ativa);
-    const exemplo = k ? `${k.prefixo}${'x'.repeat(24)}` : 'vn_live_SUA_CHAVE_AQUI';
-    const base = location.origin;
+    const k = state.chaves[0] ? state.chaves[0].prefixo : 'SUA_KEY';
     c.innerHTML = `
-      <h2 class="text-xl font-black mb-1">📖 Documentação</h2>
-      <p class="text-xs text-gray-500 mb-6">Como autenticar e usar a API.</p>
-
-      <div class="card rounded-xl p-5 mb-4">
-        <div class="text-sm font-bold mb-2">🔑 Autenticação</div>
-        <p class="text-xs text-gray-400 mb-3">Três formas de enviar a chave. Escolha a que combina com sua integração.</p>
-        <div class="space-y-3">
-          <div>
-            <div class="text-[10px] text-gray-500 uppercase font-bold mb-1">1. Header (recomendado)</div>
-            <pre><span class="code-green">GET</span> <span class="code-yellow">${esc(base)}/v1/filmes?page=1</span>
-<span class="code-blue">X-API-Key:</span> <span class="code-green">${esc(exemplo)}</span></pre>
-          </div>
-          <div>
-            <div class="text-[10px] text-gray-500 uppercase font-bold mb-1">2. Bearer</div>
-            <pre><span class="code-green">GET</span> <span class="code-yellow">${esc(base)}/v1/filmes</span>
-<span class="code-blue">Authorization:</span> <span class="code-green">Bearer ${esc(exemplo)}</span></pre>
-          </div>
-          <div>
-            <div class="text-[10px] text-gray-500 uppercase font-bold mb-1">3. Query string (para VLC/TiviMate)</div>
-            <pre><span class="code-green">GET</span> <span class="code-yellow">${esc(base)}/v1/filmes?api_key=${esc(exemplo)}</span></pre>
-          </div>
+      <div class="card p-5 rounded-xl mb-4">
+        <h3 class="font-bold text-sm mb-3">Exemplo de Requisição</h3>
+        <div class="bg-[#0a0a0a] p-3 rounded text-xs font-mono text-green-400 overflow-x-auto">
+          curl -H "X-API-Key: vn_live_${k}..." https://api.venusdev.xyz/v1/filmes
         </div>
       </div>
-
-      <div class="card rounded-xl p-5 mb-4">
-        <div class="text-sm font-bold mb-3">📡 Endpoints</div>
-        <div class="space-y-2 text-xs">
-          ${[
-            ['GET','/v1/filmes?page=1&size=30','Lista filmes'],
-            ['GET','/v1/series?page=1&size=30','Lista séries'],
-            ['GET','/v1/canais?page=1&size=50','Lista canais'],
-            ['GET','/v1/home','Dashboard completo'],
-            ['GET','/v1/buscar?q=vingadores','Buscar'],
-            ['GET','/v1/info/filme/{id}','Metadados de filme'],
-            ['GET','/v1/info/serie/{id}','Metadados de série'],
-            ['GET','/v1/stream/{slug}','Proxy de stream'],
-            ['GET','/v1/playlist.m3u','Playlist M3U pronta'],
-          ].map(([m,r,d])=>`<div class="flex items-start gap-3 py-2 border-b border-[#1f1f1f]">
-            <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-bold flex-shrink-0">${m}</span>
-            <div class="flex-1 min-w-0"><div class="font-mono text-gray-300 break-all">${esc(r)}</div><div class="text-[10px] text-gray-500">${esc(d)}</div></div>
-          </div>`).join('')}
-        </div>
-      </div>
-
-      <div class="card rounded-xl p-5 mb-4">
-        <div class="text-sm font-bold mb-2">🎬 Playlist M3U no TiviMate / VLC</div>
-        <p class="text-xs text-gray-400 mb-3">Cole esta URL no app de TV:</p>
-        <div class="key-box text-green-400">${esc(base)}/v1/playlist.m3u?api_key=${esc(exemplo)}</div>
-      </div>
-
-      <div class="card rounded-xl p-5">
-        <div class="text-sm font-bold mb-2">⚠️ Erros comuns</div>
-        <div class="space-y-2 text-xs">
-          <div class="flex gap-3"><span class="text-red-400 font-mono">401</span><div>Chave inválida ou revogada.</div></div>
-          <div class="flex gap-3"><span class="text-red-400 font-mono">402</span><div>Plano expirado. Renove em <a href="#plano" class="text-red-400 underline">Meu Plano</a>.</div></div>
-          <div class="flex gap-3"><span class="text-red-400 font-mono">429</span><div>Rate limit / cota esgotada.</div></div>
+      <div class="card p-5 rounded-xl">
+        <h3 class="font-bold text-sm mb-3">Playlist M3U (TiviMate / VLC)</h3>
+        <div class="bg-[#0a0a0a] p-3 rounded text-xs font-mono text-green-400 break-all">
+          https://api.venusdev.xyz/v1/playlist.m3u?api_key=vn_live_${k}...
         </div>
       </div>
     `;
   }
 };
-
-function cardStat(label, valor, icone, cor){
-  return `<div class="card rounded-xl p-4"><div class="flex items-center justify-between mb-2"><div class="text-[10px] font-bold text-gray-500 uppercase">${label}</div><i class="fa-solid ${icone} ${cor}"></i></div><div class="text-xl font-black">${valor}</div></div>`;
-}
 
 window.addEventListener('hashchange', ()=>Router.handle());
 window.addEventListener('DOMContentLoaded', ()=>iniciarPainel());

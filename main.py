@@ -844,6 +844,41 @@ def admin_marcar_paga(fid: int, db: Session = Depends(get_db)):
     if not f: raise HTTPException(404)
     f.status = "paga"; f.paga_em = datetime.utcnow(); db.commit(); return {"ok": True}
 
+# ==========================================================
+# LOGIN COM GOOGLE (FIREBASE AUTH)
+# ==========================================================
+class GoogleLoginPayload(BaseModel):
+    idToken: str
+
+@app.post("/v1/auth/google")
+def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
+    from firebase_admin import auth as fb_auth
+    try:
+        decoded_token = fb_auth.verify_id_token(payload.idToken)
+        email = decoded_token.get("email")
+        nome = decoded_token.get("name", "Usuário Google")
+        if not email:
+            raise HTTPException(400, "Token do Google não contém email.")
+    except Exception as e:
+        raise HTTPException(401, f"Token inválido: {e}")
+
+    c = db.query(Cliente).filter_by(email=email.lower()).first()
+    
+    # Se o cliente não existir, cria a conta automaticamente
+    if not c:
+        plano_free = db.query(Plano).filter_by(slug="free").first()
+        c = Cliente(nome=nome, email=email.lower(), senha_hash=None, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=7))
+        db.add(c); db.commit(); db.refresh(c)
+        
+        # Gera a primeira API Key
+        raw, h, prefixo = gerar_chave()
+        db.add(ApiKey(cliente_id=c.id, chave_hash=h, prefixo=prefixo, nome="primeira-chave", ativa=True)); db.commit()
+    
+    token = criar_token_sessao(c.id)
+    resp = JSONResponse({"ok": True, "cliente_id": c.id})
+    resp.set_cookie("sessao", token, httponly=True, secure=False, samesite="lax", max_age=30*24*3600)
+    return resp
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT, reload=False)
