@@ -394,15 +394,19 @@ const Views = {
   },
 
   async docs(c){
-    const chaveAtiva = state.chaves.find(k => k.ativa);
-    const chaveExemplo = chaveAtiva ? chaveAtiva.prefixo + 'xxxxxxx' : 'vn_live_SUA_CHAVE_AQUI';
     const base = location.origin;
-    
     c.innerHTML = `
       <div class="animate-fade-in-up">
         <div class="mb-8">
           <h2 class="text-2xl font-black">Documentação</h2>
           <p class="text-xs text-gray-400 mt-1">Aprenda a integrar o Vênus API no seu aplicativo de forma simples.</p>
+        </div>
+
+        <!-- CAMPO PARA COLAR A CHAVE E GERAR OS LINKS -->
+        <div class="card p-6 border-green-500/30 mb-8 bg-green-500/5">
+          <h3 class="font-bold text-green-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-key"></i> Cole sua API Key aqui</h3>
+          <p class="text-xs text-gray-400 mb-3">Para gerar os links corretos abaixo, cole a chave completa que você acabou de criar.</p>
+          <input id="doc-api-key" type="text" class="input-dark w-full font-mono text-sm mb-2" placeholder="vn_live_..." oninput="atualizarLinksDoc()">
         </div>
 
         <div class="grid lg:grid-cols-2 gap-6 mb-8">
@@ -413,14 +417,14 @@ const Views = {
             
             <div class="text-xs font-bold text-gray-500 mb-2 uppercase">Header (Para programação)</div>
             <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-              <code class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-blue-400">X-API-Key:</span> ${esc(chaveExemplo)}</code>
-              <button onclick="copy('${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+              <code id="doc-header" class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-blue-400">X-API-Key:</span> vn_live_SUA_CHAVE</code>
+              <button onclick="copiarDoc('header')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
             </div>
 
             <div class="text-xs font-bold text-gray-500 mb-2 uppercase">Query Param (Para players e navegador)</div>
             <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl">
-              <code class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-yellow-400">?api_key=</span>${esc(chaveExemplo)}</code>
-              <button onclick="copy('?api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+              <code id="doc-query" class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-yellow-400">?api_key=</span>vn_live_SUA_CHAVE</code>
+              <button onclick="copiarDoc('query')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
             </div>
           </div>
 
@@ -429,16 +433,15 @@ const Views = {
             <h3 class="font-bold text-purple-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-tv"></i> 2. Playlist M3U (TV)</h3>
             <p class="text-sm text-gray-400 mb-4">Cole no TiviMate, IPTV Smarters ou VLC:</p>
             <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-              <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/playlist.m3u?api_key=${esc(chaveExemplo)}</code>
-              <button onclick="copy('${esc(base)}/v1/playlist.m3u?api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+              <code id="doc-m3u" class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/playlist.m3u?api_key=vn_live_SUA_CHAVE</code>
+              <button onclick="copiarDoc('m3u')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
             </div>
           </div>
         </div>
 
-        <!-- Passo 3: Endpoints (LISTA COMPLETA) -->
+        <!-- Passo 3: Endpoints -->
         <div class="card p-6 mb-8">
           <h3 class="font-bold text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-code text-gray-400"></i> 3. Lista de Conteúdo (Endpoints)</h3>
-          <p class="text-sm text-gray-400 mb-4">Use estas rotas para puxar os dados em formato JSON no seu sistema:</p>
           
           <div class="space-y-1">
             ${[
@@ -446,7 +449,7 @@ const Views = {
               ['Listar Séries', '/v1/series?page=1', 'Mostra as séries paginadas'],
               ['Listar Canais', '/v1/canais?page=1', 'Mostra os canais paginados'],
               ['Buscar Título', '/v1/buscar?q=vingadores', 'Pesquisa em todo o catálogo'],
-              ['Categorias', '/v1/categorias', 'Lista todas as categorias (Ação, Comédia...)'],
+              ['Categorias', '/v1/categorias', 'Lista todas as categorias'],
               ['Filtrar por Categoria', '/v1/filmes?categoria=Ação', 'Ex: ver só filmes de Ação'],
               ['Detalhes do Filme', '/v1/info/filme/2127', 'Sinopse, capa, trailer, elenco'],
               ['Detalhes da Série', '/v1/info/serie/4521', 'Episódios e temporadas'],
@@ -459,35 +462,39 @@ const Views = {
                 </div>
                 <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] px-3 py-2 rounded-lg">
                   <code class="text-xs font-mono text-green-400 flex-1 sm:flex-none">${rota}</code>
-                  <button onclick="copy('${esc(base)}${rota}')" class="text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i></button>
+                  <button onclick="copiarEndpoint('${esc(base)}', '${rota}')" class="text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i></button>
                 </div>
               </div>
             `).join('')}
           </div>
         </div>
-
-        <!-- Passo 4: Exemplos Práticos -->
-        <div class="card p-6 border-yellow-500/20">
-          <h3 class="font-bold text-yellow-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> 4. Exemplos Práticos</h3>
-          <p class="text-sm text-gray-400 mb-4">Se você for testar no navegador ou no Postman, a URL completa fica assim:</p>
-          
-          <div class="text-xs font-bold text-gray-500 mb-1 uppercase">Exemplo: Listar Filmes</div>
-          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/filmes?page=1&api_key=${esc(chaveExemplo)}</code>
-            <button onclick="copy('${esc(base)}/v1/filmes?page=1&api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
-          </div>
-
-          <div class="text-xs font-bold text-gray-500 mb-1 uppercase">Exemplo: Buscar Vingadores</div>
-          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/buscar?q=vingadores&api_key=${esc(chaveExemplo)}</code>
-            <button onclick="copy('${esc(base)}/v1/buscar?q=vingadores&api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
-          </div>
-
-          <p class="text-xs text-yellow-500 font-bold mt-2">Dica: O "page=1" significa que é a página 1. Se quiser ver mais itens, mude para page=2, page=3, etc.</p>
-        </div>
       </div>
     `;
   }
+};
+
+window.atualizarLinksDoc = function() {
+    const key = document.getElementById('doc-api-key').value.trim() || 'vn_live_SUA_CHAVE';
+    const base = location.origin;
+    document.getElementById('doc-header').innerHTML = `<span class="text-blue-400">X-API-Key:</span> ${esc(key)}`;
+    document.getElementById('doc-query').innerHTML = `<span class="text-yellow-400">?api_key=</span>${esc(key)}`;
+    document.getElementById('doc-m3u').innerHTML = `${esc(base)}/v1/playlist.m3u?api_key=${esc(key)}`;
+};
+
+window.copiarDoc = function(tipo) {
+    const key = document.getElementById('doc-api-key').value.trim() || 'vn_live_SUA_CHAVE';
+    const base = location.origin;
+    let txt = '';
+    if (tipo === 'header') txt = `X-API-Key: ${key}`;
+    if (tipo === 'query') txt = `?api_key=${key}`;
+    if (tipo === 'm3u') txt = `${base}/v1/playlist.m3u?api_key=${key}`;
+    copy(txt);
+};
+
+window.copiarEndpoint = function(base, rota) {
+    const key = document.getElementById('doc-api-key').value.trim() || 'vn_live_SUA_CHAVE';
+    const separador = rota.includes('?') ? '&' : '?';
+    copy(`${base}${rota}${separador}api_key=${key}`);
 };
 
 window.addEventListener('hashchange', ()=>Router.handle());

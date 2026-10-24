@@ -549,8 +549,14 @@ class AssinarPayload(BaseModel): plano: str
 @app.post("/v1/auth/register")
 def registrar(payload: RegistrarPayload, db: Session = Depends(get_db)):
     if db.query(Cliente).filter_by(email=payload.email.lower()).first(): raise HTTPException(400, "Email já cadastrado.")
+    
     plano_free = db.query(Plano).filter_by(slug="free").first()
-    if not plano_free: raise HTTPException(500, "Plano free não configurado.")
+    if not plano_free:
+        seed_planos()
+        plano_free = db.query(Plano).filter_by(slug="free").first()
+        if not plano_free:
+            raise HTTPException(500, "Erro ao configurar os planos no banco.")
+
     cliente = Cliente(nome=payload.nome, email=payload.email.lower(), senha_hash=hash_senha(payload.senha), empresa=payload.empresa, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=7))
     db.add(cliente); db.commit(); db.refresh(cliente)
     raw, h, prefixo = gerar_chave()
@@ -598,7 +604,8 @@ def criar_chave(payload: CriarChavePayload, cliente: Cliente = Depends(get_clien
 def revogar_chave(kid: int, cliente: Cliente = Depends(get_cliente_sessao), db: Session = Depends(get_db)):
     k = db.query(ApiKey).filter_by(id=kid, cliente_id=cliente.id).first()
     if not k: raise HTTPException(404, "Chave não encontrada.")
-    k.ativa = False; db.commit(); return {"ok": True}
+    db.delete(k)
+    db.commit(); return {"ok": True}
 
 @app.get("/v1/plans")
 def listar_planos(db: Session = Depends(get_db)):
@@ -736,31 +743,36 @@ async def v1_stream(slug_path: str, request: Request, t: str = Query(None)):
     return await stream_proxy(item["url"], request)
 
 @app.get("/v1/playlist.m3u")
-def v1_playlist(request: Request, api_key: str = Query(...)):
+def v1_playlist(request: Request, api_key: str = Query(None)):
+    chave = api_key or request.headers.get("X-API-Key")
+    if not chave: raise HTTPException(401, "API key ausente.")
+    
     from auth import hash_chave as _h
     db = SessionLocal()
     try:
-        ak = db.query(ApiKey).filter(ApiKey.chave_hash == _h(api_key), ApiKey.ativa == True).first()
-        if not ak: raise HTTPException(401, "API key inválida")
+        ak = db.query(ApiKey).filter(ApiKey.chave_hash == _h(chave), ApiKey.ativa == True).first()
+        if not ak: raise HTTPException(401, "API key inválida ou revogada")
+        
         c = db.query(Cliente).get(ak.cliente_id)
         if not c or not c.ativo: raise HTTPException(403, "Conta inativa")
         if c.plano_expira_em and c.plano_expira_em < datetime.utcnow(): raise HTTPException(402, "Plano expirado")
     finally: db.close()
+    
     base = str(request.base_url).rstrip("/"); lines = ["#EXTM3U"]
     for f in _FILMES:
         slug = _slugify(f.get("titulo") or "", f.get("ano"))
         if not slug: continue
-        url = f"{base}/v1/stream/{slug}.mp4?api_key={api_key}"
+        url = f"{base}/v1/stream/{slug}.mp4?api_key={chave}"
         lines.append(f'#EXTINF:-1 tvg-logo="{f.get("capa") or ""}" group-title="{f.get("categoria") or "Filmes"}",{f.get("titulo")}'); lines.append(url)
     for s_ in _SERIES:
         slug = _slugify(s_.get("titulo") or "", s_.get("ano"))
         if not slug: continue
-        url = f"{base}/v1/stream/{slug}.mp4?api_key={api_key}"
+        url = f"{base}/v1/stream/{slug}.mp4?api_key={chave}"
         lines.append(f'#EXTINF:-1 tvg-logo="{s_.get("capa") or ""}" group-title="{s_.get("categoria") or "Séries"} - Série",{s_.get("titulo")}'); lines.append(url)
     for c_ in _CANAIS:
         slug = _slugify(c_.get("titulo") or "")
         if not slug: continue
-        url = f"{base}/v1/stream/{slug}.ts?api_key={api_key}"
+        url = f"{base}/v1/stream/{slug}.ts?api_key={chave}"
         lines.append(f'#EXTINF:-1 tvg-logo="{c_.get("capa") or ""}" group-title="{c_.get("categoria") or "Canais"}",{c_.get("titulo")}'); lines.append(url)
     return Response("\n".join(lines), media_type="audio/x-mpegurl")
 
@@ -852,6 +864,10 @@ def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
     
     if not c:
         plano_free = db.query(Plano).filter_by(slug="free").first()
+        if not plano_free:
+            seed_planos()
+            plano_free = db.query(Plano).filter_by(slug="free").first()
+            
         c = Cliente(nome=nome, email=email.lower(), senha_hash=None, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=7))
         db.add(c); db.commit(); db.refresh(c)
         raw, h, prefixo = gerar_chave()
