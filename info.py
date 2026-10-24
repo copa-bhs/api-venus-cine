@@ -2,36 +2,23 @@ import re
 import traceback
 import httpx
 
-from config import (
-    USER_AGENT,
-    IPTV_HOST,
-    IPTV_USERNAME,
-    IPTV_PASSWORD,
-    TMDB_ENABLED,
-    PUBLIC_BASE_URL,
-)
+from config import USER_AGENT, TMDB_ENABLED, PUBLIC_BASE_URL
 import tmdb
 import logos
 import proxy
+from firebase_client import get_firestore
 
-BASE_API = f"{IPTV_HOST}/player_api.php"
-USERNAME = IPTV_USERNAME
-PASSWORD = IPTV_PASSWORD
-
-INFO_MOVIE_URL  = f"{BASE_API}?username={USERNAME}&password={PASSWORD}&action=get_vod_info&vod_id={{id}}"
-INFO_SERIES_URL = f"{BASE_API}?username={USERNAME}&password={PASSWORD}&action=get_series_info&series_id={{id}}"
-
+INFO_MOVIE_URL = "{host}/player_api.php?username={user}&password={pw}&action=get_vod_info&vod_id={id}"
+INFO_SERIES_URL = "{host}/player_api.php?username={user}&password={pw}&action=get_series_info&series_id={id}"
 
 def _url_proxy(item_id: str) -> str:
     base = (PUBLIC_BASE_URL or "").rstrip("/")
-    if base:
-        return f"{base}/stream/id/{item_id}.mp4"
+    if base: return f"{base}/stream/id/{item_id}.mp4"
     return f"/stream/id/{item_id}.mp4"
 
 def _url_proxy_episodio(ep_id: str) -> str:
     base = (PUBLIC_BASE_URL or "").rstrip("/")
-    if base:
-        return f"{base}/stream/id/{ep_id}.mp4"
+    if base: return f"{base}/stream/id/{ep_id}.mp4"
     return f"/stream/id/{ep_id}.mp4"
 
 _EPISODE_PATTERNS = [
@@ -54,8 +41,7 @@ def _clean_episode_title(titulo_bruto: str, titulo_serie: str = "") -> str:
     m = re.search(r'S(\d+)\s*[E\xD7x]\s*(\d+)\s*[-–—]?\s*(.+)?$', t, re.I)
     if m:
         depois = (m.group(3) or "").strip(" -–—:|")
-        if depois and not re.match(r'^epis[oó]dio\s*\d+$', depois, re.I):
-            return depois.strip()
+        if depois and not re.match(r'^epis[oó]dio\s*\d+$', depois, re.I): return depois.strip()
         return f"Episódio {int(m.group(2))}"
     for pat in _EPISODE_PATTERNS:
         t = pat.sub(" ", t)
@@ -82,50 +68,69 @@ def _to_int(v):
     try: return int(v)
     except: return None
 
+def _get_provedor_por_url(url_original: str):
+    """Busca as credenciais no Firestore baseado no host da URL do stream."""
+    fdb = get_firestore()
+    if not fdb: return None
+    try:
+        from urllib.parse import urlparse
+        host_orig = urlparse(url_original).netloc
+        docs = fdb.collection("provedores").stream()
+        for doc in docs:
+            prov = doc.to_dict()
+            if host_orig in prov.get("host", ""):
+                return prov
+    except Exception:
+        pass
+    return None
+
 async def _buscar_tmdb_filme(info: dict, titulo: str):
     tmdb_id = _safe(info, "tmdb_id")
     if tmdb_id:
         try:
-            tmdb_id_int = int(tmdb_id)
-            dados = await tmdb.buscar_filme_por_tmdb_id(tmdb_id_int)
+            dados = await tmdb.buscar_filme_por_tmdb_id(int(tmdb_id))
             if dados: return dados
         except: pass
-
     titulo_limpo = _limpar_titulo(titulo)
     ano = _safe(info, "releasedate", "releaseDate")
     if ano:
         try: ano = int(str(ano)[:4])
         except: ano = None
-
     dados = await tmdb.buscar_filme(titulo_limpo, ano)
     if dados: return dados
     dados = await tmdb.buscar_filme(titulo_limpo, None)
-    if dados: return dados
-    return None
+    return dados
 
 async def _buscar_tmdb_serie(info: dict, titulo: str):
     tmdb_id = _safe(info, "tmdb_id")
     if tmdb_id:
         try:
-            tmdb_id_int = int(tmdb_id)
-            dados = await tmdb.buscar_serie_por_tmdb_id(tmdb_id_int)
+            dados = await tmdb.buscar_serie_por_tmdb_id(int(tmdb_id))
             if dados: return dados
         except: pass
-
     titulo_limpo = _limpar_titulo(titulo)
     ano = _safe(info, "releaseDate", "releasedate")
     if ano:
         try: ano = int(str(ano)[:4])
         except: ano = None
-
     dados = await tmdb.buscar_serie(titulo_limpo, ano)
     if dados: return dados
     dados = await tmdb.buscar_serie(titulo_limpo, None)
-    if dados: return dados
-    return None
+    return dados
 
 async def fetch_movie_info(item_id: str, force: bool = False) -> dict:
-    url = INFO_MOVIE_URL.format(id=item_id)
+    # Tenta descobrir o provedor pela URL de proxy
+    item_proxy = proxy.get_by_id(str(item_id))
+    prov = _get_provedor_por_url(item_proxy["url"]) if item_proxy else None
+    if not prov:
+        # Se falhar, tenta o primeiro provedor ativo no Firestore
+        fdb = get_firestore()
+        docs = fdb.collection("provedores").limit(1).stream()
+        for d in docs: prov = d.to_dict()
+        
+    if not prov: raise ValueError("Nenhum provedor configurado.")
+
+    url = INFO_MOVIE_URL.format(host=prov['host'], user=prov['username'], pw=prov['password'], id=item_id)
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         r = await client.get(url, headers={"User-Agent": USER_AGENT})
         if r.status_code != 200: raise ValueError("Provedor recusou")
@@ -133,19 +138,16 @@ async def fetch_movie_info(item_id: str, force: bool = False) -> dict:
 
     info = raw.get("info") or {}
     movie_data = raw.get("movie_data") or {}
-
     titulo = _safe(info, "name", "o_name") or _safe(movie_data, "name")
     capa = _safe(info, "movie_image", "cover_big", "cover")
-
     banner = None
     backdrop_list = info.get("backdrop_path") or []
     if isinstance(backdrop_list, list) and backdrop_list: banner = backdrop_list[0]
     elif isinstance(backdrop_list, str): banner = backdrop_list
-
     trailer = _safe(info, "youtube_trailer", "trailer")
     elenco_xtream = _safe(info, "cast", "actors")
     diretor_xtream = _safe(info, "director")
-    url_stream_xtream = _safe(movie_data, "stream_url") or f"{IPTV_HOST}/movie/{USERNAME}/{PASSWORD}/{item_id}.mp4"
+    url_stream_xtream = _safe(movie_data, "stream_url") or f"{prov['host']}/movie/{prov['username']}/{prov['password']}/{item_id}.mp4"
 
     payload = {
         "id": item_id, "tipo": "filme", "titulo": titulo, "titulo_original": _safe(info, "o_name"),
@@ -162,15 +164,12 @@ async def fetch_movie_info(item_id: str, force: bool = False) -> dict:
         "tmdb_recente": False, "campos_preenchidos_por_tmdb": [], "elenco": [], "diretores": [],
         "elenco_texto": elenco_xtream, "diretor_texto": diretor_xtream,
     }
-
     proxy.register_item(item_id, url_stream_xtream, titulo, "filme")
-
     if not TMDB_ENABLED: return payload
 
     try:
         dados_tmdb = await _buscar_tmdb_filme(info, titulo or "")
         if not dados_tmdb: return payload
-
         preenchidos = []
         if dados_tmdb.get("sinopse"): payload["sinopse"] = dados_tmdb["sinopse"]; preenchidos.append("sinopse")
         if dados_tmdb.get("banner"): payload["banner"] = dados_tmdb["banner"]; payload["banner_4k"] = dados_tmdb.get("banner_4k"); preenchidos.append("banner")
@@ -180,47 +179,45 @@ async def fetch_movie_info(item_id: str, force: bool = False) -> dict:
         if dados_tmdb.get("trailer_url"): payload["trailer_url"] = dados_tmdb["trailer_url"]; preenchidos.append("trailer")
         if dados_tmdb.get("score") and not payload["score"]: payload["score"] = dados_tmdb["score"]; preenchidos.append("score")
         if dados_tmdb.get("tagline"): payload["tagline"] = dados_tmdb["tagline"]; preenchidos.append("tagline")
-
         if dados_tmdb.get("elenco"): payload["elenco"] = dados_tmdb["elenco"]; preenchidos.append("elenco")
         if dados_tmdb.get("diretores"): payload["diretores"] = dados_tmdb["diretores"]; preenchidos.append("diretores")
         if dados_tmdb.get("elenco_texto"): payload["elenco_texto"] = dados_tmdb["elenco_texto"]
         if dados_tmdb.get("diretor_texto"): payload["diretor_texto"] = dados_tmdb["diretor_texto"]
-
         payload["tmdb_id"] = dados_tmdb.get("tmdb_id")
         payload["tmdb_recente"] = dados_tmdb.get("recente", False)
-
         if dados_tmdb.get("logo"):
             payload["logo"] = dados_tmdb["logo"]; payload["logo_original"] = dados_tmdb.get("logo_original"); payload["logo_fonte"] = "tmdb"; preenchidos.append("logo")
         elif dados_tmdb.get("tmdb_id"):
             logo_fanart = await logos.buscar_logo_fanart_movie(dados_tmdb["tmdb_id"])
             if logo_fanart: payload["logo"] = logo_fanart; payload["logo_fonte"] = "fanart"; preenchidos.append("logo")
-
         payload["campos_preenchidos_por_tmdb"] = preenchidos
     except Exception as e:
         print(f"[!] TMDB falhou filme {item_id}: {e}")
-        traceback.print_exc()
-
     return payload
 
-
 async def fetch_series_info(item_id: str, force: bool = False) -> dict:
-    url = INFO_SERIES_URL.format(id=item_id)
+    item_proxy = proxy.get_by_id(str(item_id))
+    prov = _get_provedor_por_url(item_proxy["url"]) if item_proxy else None
+    if not prov:
+        fdb = get_firestore()
+        docs = fdb.collection("provedores").limit(1).stream()
+        for d in docs: prov = d.to_dict()
+    if not prov: raise ValueError("Nenhum provedor configurado.")
+
+    url = INFO_SERIES_URL.format(host=prov['host'], user=prov['username'], pw=prov['password'], id=item_id)
     async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
         r = await client.get(url, headers={"User-Agent": USER_AGENT})
         if r.status_code != 200: raise ValueError(f"Provedor recusou (HTTP {r.status_code})")
         raw = r.json()
-
     if not raw or not isinstance(raw, dict): raise ValueError("Resposta inválida do provedor")
 
     info = raw.get("info") or {}
     seasons = raw.get("seasons") or []
     episodes_map = raw.get("episodes") or {}
-
     titulo_serie = _safe(info, "name") or ""
     capa = _safe(info, "cover", "movie_image")
     banner = _safe(info, "backdrop_path")
     if isinstance(banner, list) and banner: banner = banner[0]
-
     trailer = _safe(info, "youtube_trailer", "trailer")
     elenco_xtream = _safe(info, "cast", "actors")
     diretor_xtream = _safe(info, "director")
@@ -238,15 +235,12 @@ async def fetch_series_info(item_id: str, force: bool = False) -> dict:
                 titulo_bruto = _safe(ep_info, "name") or _safe(ep, "title") or ""
                 titulo_limpo = _clean_episode_title(titulo_bruto, titulo_serie)
                 if not titulo_limpo: titulo_limpo = f"Episódio {ep_num}" if ep_num else "Episódio"
-
                 url_xtream = _safe(ep, "stream_url")
                 if not url_xtream and ep_id:
                     ext = _safe(ep, "container_extension", default="mp4")
-                    url_xtream = f"{IPTV_HOST}/series/{USERNAME}/{PASSWORD}/{ep_id}.{ext}"
-
+                    url_xtream = f"{prov['host']}/series/{prov['username']}/{prov['password']}/{ep_id}.{ext}"
                 if ep_id:
                     proxy.register_item(str(ep_id), url_xtream, titulo_limpo, "serie")
-
                 eps_normalizados.append({
                     "id": str(ep_id) if ep_id else None, "temporada": season_num, "episodio": ep_num,
                     "titulo": titulo_limpo, "sinopse": _safe(ep_info, "plot"), "capa": _safe(ep_info, "movie_image"),
@@ -285,7 +279,6 @@ async def fetch_series_info(item_id: str, force: bool = False) -> dict:
     try:
         dados_tmdb = await _buscar_tmdb_serie(info, titulo_serie)
         if not dados_tmdb: return payload
-
         preenchidos = []
         if dados_tmdb.get("sinopse"): payload["sinopse"] = dados_tmdb["sinopse"]; preenchidos.append("sinopse")
         if dados_tmdb.get("banner"): payload["banner"] = dados_tmdb["banner"]; payload["banner_4k"] = dados_tmdb.get("banner_4k"); preenchidos.append("banner")
@@ -295,24 +288,18 @@ async def fetch_series_info(item_id: str, force: bool = False) -> dict:
         if dados_tmdb.get("trailer_url"): payload["trailer_url"] = dados_tmdb["trailer_url"]; preenchidos.append("trailer")
         if dados_tmdb.get("score") and not payload["score"]: payload["score"] = dados_tmdb["score"]; preenchidos.append("score")
         if dados_tmdb.get("tagline"): payload["tagline"] = dados_tmdb["tagline"]; preenchidos.append("tagline")
-
         if dados_tmdb.get("elenco"): payload["elenco"] = dados_tmdb["elenco"]; preenchidos.append("elenco")
         if dados_tmdb.get("criadores"): payload["criadores"] = dados_tmdb["criadores"]; payload["diretores"] = dados_tmdb["criadores"]; preenchidos.append("criadores")
         if dados_tmdb.get("elenco_texto"): payload["elenco_texto"] = dados_tmdb["elenco_texto"]
         if dados_tmdb.get("diretor_texto"): payload["diretor_texto"] = dados_tmdb["diretor_texto"]
-
         payload["tmdb_id"] = dados_tmdb.get("tmdb_id")
         payload["tmdb_recente"] = dados_tmdb.get("recente", False)
-
         if dados_tmdb.get("logo"):
             payload["logo"] = dados_tmdb["logo"]; payload["logo_original"] = dados_tmdb.get("logo_original"); payload["logo_fonte"] = "tmdb"; preenchidos.append("logo")
         elif dados_tmdb.get("tvdb_id"):
             logo_fanart = await logos.buscar_logo_fanart_tv(dados_tmdb["tvdb_id"])
             if logo_fanart: payload["logo"] = logo_fanart; payload["logo_fonte"] = "fanart"; preenchidos.append("logo")
-
         payload["campos_preenchidos_por_tmdb"] = preenchidos
     except Exception as e:
         print(f"[!] TMDB falhou série {item_id}: {e}")
-        traceback.print_exc()
-
     return payload
