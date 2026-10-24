@@ -51,7 +51,7 @@
   .sidebar-link.active { background: rgba(229,9,20,0.1); color: #E50914; border-left-color: #E50914; }
   .sidebar-link:hover:not(.active) { background: rgba(255,255,255,0.03); color: #fff; }
   .endpoint-row:hover { background-color: rgba(255,255,255,0.03); }
-  .code-block { background: #000; border: 1px solid #222; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; overflow-x: auto; }
+  .code-block { background: #000; border: 1px solid #222; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; overflow-x: auto; white-space: pre; }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 </style>
@@ -319,7 +319,7 @@ const Views = {
                 <div class="text-xs text-gray-500 font-mono bg-[#0a0a0a] border border-[#222] px-3 py-1.5 rounded-lg inline-block">${esc(k.prefixo)}••••••••</div>
               </div>
               <div class="flex items-center gap-2">
-                <button onclick="Views.deletar(${k.id})" class="h-9 px-4 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white text-xs font-bold transition flex items-center gap-2"><i class="fa-solid fa-trash"></i> Excluir</button>
+                <button onclick="Views.confirmarExclusao(${k.id}, '${esc(k.nome)}')" class="h-9 px-4 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white text-xs font-bold transition flex items-center gap-2"><i class="fa-solid fa-trash"></i> Excluir</button>
               </div>
             </div>
           `).join('')}
@@ -360,10 +360,25 @@ const Views = {
     } catch(e) { Toast.show(e.message, 'error'); }
   },
 
+  async confirmarExclusao(id, nome) {
+    document.getElementById('modal-root').innerHTML = `
+      <div class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
+        <div class="card w-full max-w-sm p-6 border-red-500/30">
+          <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-4"><i class="fa-solid fa-triangle-exclamation text-red-500 text-xl"></i></div>
+          <h3 class="text-lg font-black mb-1">Excluir Chave?</h3>
+          <p class="text-xs text-gray-400 mb-6">Tem certeza que deseja excluir a chave <b>${esc(nome)}</b>? Qualquer sistema usando ela vai parar de funcionar imediatamente. Essa ação não pode ser desfeita.</p>
+          <div class="flex gap-2">
+            <button onclick="document.getElementById('modal-root').innerHTML=''" class="flex-1 h-11 rounded-xl bg-[#1a1a1a] text-xs font-bold text-gray-400 hover:text-white transition">Cancelar</button>
+            <button onclick="Views.deletar(${id})" class="flex-1 h-11 rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700 transition">Sim, Excluir</button>
+          </div>
+        </div>
+      </div>`;
+  },
+
   async deletar(id){ 
-    if(!confirm('⚠️ Tem certeza que deseja EXCLUIR esta chave? Qualquer sistema que a use vai parar de funcionar imediatamente.')) return; 
     try {
       await Api.del('/v1/auth/keys/'+id); 
+      document.getElementById('modal-root').innerHTML='';
       Toast.show('Chave excluída com sucesso!'); 
       iniciarPainel();
     } catch(e) { Toast.show(e.message, 'error'); }
@@ -429,7 +444,7 @@ const Views = {
 
           <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
           <div class="code-block text-gray-300">
-<pre>{
+{
   "page": 1,
   "page_size": 30,
   "total_items": 15044,
@@ -444,7 +459,7 @@ const Views = {
       "slug": "a-odisseia-2026"
     }
   ]
-}</pre>
+}
           </div>
         </div>
 
@@ -458,6 +473,26 @@ const Views = {
             <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/series?page=1&api_key=<span id="key-series">SUA_CHAVE</span></code>
             <button onclick="copiarReq('${esc(base)}/v1/series?page=1&api_key=', 'key-series')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
           </div>
+
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
+          <div class="code-block text-gray-300">
+{
+  "page": 1,
+  "page_size": 30,
+  "total_items": 5601,
+  "total_pages": 187,
+  "items": [
+    {
+      "id": "4521",
+      "title": "Breaking Bad",
+      "poster": "https://image.tmdb.org/...",
+      "type": "series",
+      "year": 2008,
+      "slug": "breaking-bad-2008"
+    }
+  ]
+}
+          </div>
         </div>
 
         <!-- CANAIS -->
@@ -469,6 +504,26 @@ const Views = {
           <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
             <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/canais?page=1&api_key=<span id="key-canais">SUA_CHAVE</span></code>
             <button onclick="copiarReq('${esc(base)}/v1/canais?page=1&api_key=', 'key-canais')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
+          <div class="code-block text-gray-300">
+{
+  "page": 1,
+  "page_size": 50,
+  "total_items": 2162,
+  "total_pages": 44,
+  "items": [
+    {
+      "id": "8790",
+      "title": "ESPN Brasil",
+      "poster": "https://image.tmdb.org/...",
+      "type": "channel",
+      "year": null,
+      "slug": "espn-brasil"
+    }
+  ]
+}
           </div>
         </div>
 
@@ -485,38 +540,79 @@ const Views = {
 
           <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
           <div class="code-block text-gray-300">
-<pre>{
-  "filmes": ["Ação", "Comédia", "Drama"],
-  "series": ["Anime", "Dorama"],
-  "canais": ["Esportes", "Notícias"]
-}</pre>
+{
+  "filmes": ["Ação", "Comédia", "Drama", "Terror"],
+  "series": ["Anime", "Dorama", "Novela"],
+  "canais": ["Esportes", "Notícias", "Filmes"]
+}
           </div>
         </div>
 
-        <!-- INFORMAÇÕES -->
+        <!-- INFO FILME -->
         <div class="card p-6 mb-6">
-          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info text-blue-500"></i> Detalhes de um Filme/Série</h3>
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info text-red-500"></i> Detalhes de um Filme</h3>
           <p class="text-xs text-gray-400 mb-4">Puxe informações ricas como sinopse, elenco, trailer e capa grande.</p>
           
           <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
           <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/info/filme/2127?api_key=<span id="key-info">SUA_CHAVE</span></code>
-            <button onclick="copiarReq('${esc(base)}/v1/info/filme/2127?api_key=', 'key-info')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/info/filme/2127?api_key=<span id="key-info-filme">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/info/filme/2127?api_key=', 'key-info-filme')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
           </div>
 
           <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
           <div class="code-block text-gray-300">
-<pre>{
+{
   "id": "2127",
   "titulo": "A ODISSEIA",
-  "sinopse": "Um herói grego...",
+  "sinopse": "Um herói grego tenta voltar para casa...",
   "capa": "https://image.tmdb.org/...",
   "banner": "https://image.tmdb.org/...",
   "score": 8.5,
   "generos": ["Ação", "Aventura"],
   "trailer_url": "https://youtube.com/...",
   "url_stream": "${esc(base)}/v1/stream/a-odisseia-2026.mp4?api_key=SUA_CHAVE"
-}</pre>
+}
+          </div>
+        </div>
+
+        <!-- INFO SÉRIE -->
+        <div class="card p-6 mb-6">
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info text-purple-500"></i> Detalhes de uma Série</h3>
+          <p class="text-xs text-gray-400 mb-4">Informações da série, temporadas e episódios.</p>
+          
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/info/serie/4521?api_key=<span id="key-info-serie">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/info/serie/4521?api_key=', 'key-info-serie')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
+          <div class="code-block text-gray-300">
+{
+  "id": "4521",
+  "titulo": "Breaking Bad",
+  "sinopse": "Um professor de química...",
+  "capa": "https://image.tmdb.org/...",
+  "banner": "https://image.tmdb.org/...",
+  "score": 9.5,
+  "generos": ["Drama", "Crime"],
+  "total_temporadas": 5,
+  "total_episodios": 62,
+  "temporadas": [
+    {
+      "numero": 1,
+      "titulo": "Temporada 1",
+      "episodios": [
+        {
+          "temporada": 1,
+          "episodio": 1,
+          "titulo": "Pilot",
+          "url_stream": "${esc(base)}/v1/stream/breaking-bad-t01-e01.mp4?api_key=SUA_CHAVE"
+        }
+      ]
+    }
+  ]
+}
           </div>
         </div>
 
@@ -533,7 +629,7 @@ const Views = {
 
 window.atualizarLinksDoc = function() {
     const key = document.getElementById('doc-api-key').value.trim() || 'SUA_CHAVE';
-    const spans = ['key-filmes', 'key-series', 'key-canais', 'key-categorias', 'key-info'];
+    const spans = ['key-filmes', 'key-series', 'key-canais', 'key-categorias', 'key-info-filme', 'key-info-serie'];
     spans.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = key; });
 };
 
