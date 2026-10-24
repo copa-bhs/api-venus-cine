@@ -51,6 +51,7 @@
   .sidebar-link.active { background: rgba(229,9,20,0.1); color: #E50914; border-left-color: #E50914; }
   .sidebar-link:hover:not(.active) { background: rgba(255,255,255,0.03); color: #fff; }
   .endpoint-row:hover { background-color: rgba(255,255,255,0.03); }
+  .code-block { background: #000; border: 1px solid #222; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; overflow-x: auto; }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 </style>
@@ -68,7 +69,6 @@
     <p class="text-sm text-gray-400 mb-8">A plataforma definitiva de streaming.</p>
 
     <div class="space-y-3">
-      <!-- BOTÃO DO GOOGLE OCULTO -->
       <button onclick="mostrarCadastro()" class="w-full h-12 btn-red text-sm">
         <i class="fa-solid fa-envelope"></i> Acessar Painel
       </button>
@@ -398,75 +398,133 @@ const Views = {
     c.innerHTML = `
       <div class="animate-fade-in-up">
         <div class="mb-8">
-          <h2 class="text-2xl font-black">Documentação</h2>
-          <p class="text-xs text-gray-400 mt-1">Aprenda a integrar o Vênus API no seu aplicativo de forma simples.</p>
+          <h2 class="text-2xl font-black">Documentação da API</h2>
+          <p class="text-xs text-gray-400 mt-1">Aprenda a integrar o Vênus API no seu sistema de forma simples e segura.</p>
         </div>
 
-        <!-- CAMPO PARA COLAR A CHAVE E GERAR OS LINKS -->
+        <!-- CAMPO PARA COLAR A CHAVE -->
         <div class="card p-6 border-green-500/30 mb-8 bg-green-500/5">
           <h3 class="font-bold text-green-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-key"></i> Cole sua API Key aqui</h3>
-          <p class="text-xs text-gray-400 mb-3">Para gerar os links corretos abaixo, cole a chave completa que você acabou de criar.</p>
+          <p class="text-xs text-gray-400 mb-3">Para gerar os exemplos corretos abaixo, cole a chave completa que você criou.</p>
           <input id="doc-api-key" type="text" class="input-dark w-full font-mono text-sm mb-2" placeholder="vn_live_..." oninput="atualizarLinksDoc()">
         </div>
 
-        <div class="grid lg:grid-cols-2 gap-6 mb-8">
-          <!-- Passo 1: Autenticação -->
-          <div class="card p-6 border-blue-500/20">
-            <h3 class="font-bold text-blue-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> 1. Como Autenticar</h3>
-            <p class="text-sm text-gray-400 mb-4">Todas as requisições precisam da sua API Key.</p>
-            
-            <div class="text-xs font-bold text-gray-500 mb-2 uppercase">Header (Para programação)</div>
-            <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-              <code id="doc-header" class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-blue-400">X-API-Key:</span> vn_live_SUA_CHAVE</code>
-              <button onclick="copiarDoc('header')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
-            </div>
+        <!-- COMO PROTEGER -->
+        <div class="card p-6 border-blue-500/20 mb-8">
+          <h3 class="font-bold text-blue-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> Como proteger sua chave</h3>
+          <p class="text-sm text-gray-400 mb-3">Sua API Key é o acesso ao seu sistema. <b>NUNCA</b> exponha ela no front-end (HTML/JS) do seu site.</p>
+          <p class="text-sm text-gray-400">O correto é fazer a requisição através do seu servidor (Back-end) ou usar um app mobile (Android/iOS) que guarde essa chave de forma segura.</p>
+        </div>
 
-            <div class="text-xs font-bold text-gray-500 mb-2 uppercase">Query Param (Para players e navegador)</div>
-            <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl">
-              <code id="doc-query" class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-yellow-400">?api_key=</span>vn_live_SUA_CHAVE</code>
-              <button onclick="copiarDoc('query')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
-            </div>
+        <!-- FILMES -->
+        <div class="card p-6 mb-6">
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-film text-red-500"></i> Listar Filmes</h3>
+          <p class="text-xs text-gray-400 mb-4">Retorna uma lista paginada com todos os filmes disponíveis. Use <code>page</code> e <code>size</code> para navegar.</p>
+          
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/filmes?page=1&size=30&api_key=<span id="key-filmes">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/filmes?page=1&size=30&api_key=', 'key-filmes')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
           </div>
 
-          <!-- Passo 2: Playlist M3U -->
-          <div class="card p-6 border-purple-500/20">
-            <h3 class="font-bold text-purple-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-tv"></i> 2. Playlist M3U (TV)</h3>
-            <p class="text-sm text-gray-400 mb-4">Cole no TiviMate, IPTV Smarters ou VLC:</p>
-            <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
-              <code id="doc-m3u" class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/playlist.m3u?api_key=vn_live_SUA_CHAVE</code>
-              <button onclick="copiarDoc('m3u')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
-            </div>
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
+          <div class="code-block text-gray-300">
+<pre>{
+  "page": 1,
+  "page_size": 30,
+  "total_items": 15044,
+  "total_pages": 502,
+  "items": [
+    {
+      "id": "2127",
+      "title": "A ODISSEIA",
+      "poster": "https://image.tmdb.org/...",
+      "type": "movie",
+      "year": 2026,
+      "slug": "a-odisseia-2026"
+    }
+  ]
+}</pre>
           </div>
         </div>
 
-        <!-- Passo 3: Endpoints -->
-        <div class="card p-6 mb-8">
-          <h3 class="font-bold text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-code text-gray-400"></i> 3. Lista de Conteúdo (Endpoints)</h3>
+        <!-- SÉRIES -->
+        <div class="card p-6 mb-6">
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-tv text-purple-500"></i> Listar Séries</h3>
+          <p class="text-xs text-gray-400 mb-4">Mesma estrutura dos filmes, mas para séries.</p>
           
-          <div class="space-y-1">
-            ${[
-              ['Listar Filmes', '/v1/filmes?page=1', 'Mostra os filmes paginados'],
-              ['Listar Séries', '/v1/series?page=1', 'Mostra as séries paginadas'],
-              ['Listar Canais', '/v1/canais?page=1', 'Mostra os canais paginados'],
-              ['Buscar Título', '/v1/buscar?q=vingadores', 'Pesquisa em todo o catálogo'],
-              ['Categorias', '/v1/categorias', 'Lista todas as categorias'],
-              ['Filtrar por Categoria', '/v1/filmes?categoria=Ação', 'Ex: ver só filmes de Ação'],
-              ['Detalhes do Filme', '/v1/info/filme/2127', 'Sinopse, capa, trailer, elenco'],
-              ['Detalhes da Série', '/v1/info/serie/4521', 'Episódios e temporadas'],
-              ['Stream de Vídeo', '/v1/stream/homem-aranha-2017', 'Link direto para o player (.mp4)']
-            ].map(([titulo, rota, desc])=>`
-              <div class="endpoint-row flex flex-col sm:flex-row sm:items-center justify-between p-3 border-b border-[#222] rounded-lg transition">
-                <div class="mb-2 sm:mb-0">
-                  <div class="text-sm text-gray-200 font-bold">${titulo}</div>
-                  <div class="text-xs text-gray-500">${desc}</div>
-                </div>
-                <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] px-3 py-2 rounded-lg">
-                  <code class="text-xs font-mono text-green-400 flex-1 sm:flex-none">${rota}</code>
-                  <button onclick="copiarEndpoint('${esc(base)}', '${rota}')" class="text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i></button>
-                </div>
-              </div>
-            `).join('')}
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/series?page=1&api_key=<span id="key-series">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/series?page=1&api_key=', 'key-series')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
           </div>
+        </div>
+
+        <!-- CANAIS -->
+        <div class="card p-6 mb-6">
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-satellite-dish text-green-500"></i> Listar Canais</h3>
+          <p class="text-xs text-gray-400 mb-4">Retorna a lista de canais de TV ao vivo.</p>
+          
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/canais?page=1&api_key=<span id="key-canais">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/canais?page=1&api_key=', 'key-canais')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+        </div>
+
+        <!-- CATEGORIAS -->
+        <div class="card p-6 mb-6">
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-tags text-yellow-500"></i> Listar Categorias</h3>
+          <p class="text-xs text-gray-400 mb-4">Retorna todas as categorias (Ação, Comédia, etc). Use isso para filtrar os filmes/séries.</p>
+          
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/categorias?api_key=<span id="key-categorias">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/categorias?api_key=', 'key-categorias')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
+          <div class="code-block text-gray-300">
+<pre>{
+  "filmes": ["Ação", "Comédia", "Drama"],
+  "series": ["Anime", "Dorama"],
+  "canais": ["Esportes", "Notícias"]
+}</pre>
+          </div>
+        </div>
+
+        <!-- INFORMAÇÕES -->
+        <div class="card p-6 mb-6">
+          <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info text-blue-500"></i> Detalhes de um Filme/Série</h3>
+          <p class="text-xs text-gray-400 mb-4">Puxe informações ricas como sinopse, elenco, trailer e capa grande.</p>
+          
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto">${esc(base)}/v1/info/filme/2127?api_key=<span id="key-info">SUA_CHAVE</span></code>
+            <button onclick="copiarReq('${esc(base)}/v1/info/filme/2127?api_key=', 'key-info')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+
+          <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Retorno (JSON)</div>
+          <div class="code-block text-gray-300">
+<pre>{
+  "id": "2127",
+  "titulo": "A ODISSEIA",
+  "sinopse": "Um herói grego...",
+  "capa": "https://image.tmdb.org/...",
+  "banner": "https://image.tmdb.org/...",
+  "score": 8.5,
+  "generos": ["Ação", "Aventura"],
+  "trailer_url": "https://youtube.com/...",
+  "url_stream": "${esc(base)}/v1/stream/a-odisseia-2026.mp4?api_key=SUA_CHAVE"
+}</pre>
+          </div>
+        </div>
+
+        <!-- STREAM -->
+        <div class="card p-6 border-red-500/20">
+          <h3 class="font-bold text-red-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-play"></i> Link do Vídeo (Stream)</h3>
+          <p class="text-xs text-gray-400 mb-4">No campo <code>url_stream</code> retornado acima, você recebe o link pronto para colocar no seu player (ExoPlayer, VLC, etc).</p>
+          <p class="text-xs text-red-400 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Atenção: O link de stream funciona com qualquer player, mas para apps de IPTV (TiviMate) pode haver bloqueio. Use em apps próprios de filmes/séries.</p>
         </div>
       </div>
     `;
@@ -474,27 +532,15 @@ const Views = {
 };
 
 window.atualizarLinksDoc = function() {
-    const key = document.getElementById('doc-api-key').value.trim() || 'vn_live_SUA_CHAVE';
-    const base = location.origin;
-    document.getElementById('doc-header').innerHTML = `<span class="text-blue-400">X-API-Key:</span> ${esc(key)}`;
-    document.getElementById('doc-query').innerHTML = `<span class="text-yellow-400">?api_key=</span>${esc(key)}`;
-    document.getElementById('doc-m3u').innerHTML = `${esc(base)}/v1/playlist.m3u?api_key=${esc(key)}`;
+    const key = document.getElementById('doc-api-key').value.trim() || 'SUA_CHAVE';
+    const spans = ['key-filmes', 'key-series', 'key-canais', 'key-categorias', 'key-info'];
+    spans.forEach(id => { const el = document.getElementById(id); if(el) el.textContent = key; });
 };
 
-window.copiarDoc = function(tipo) {
-    const key = document.getElementById('doc-api-key').value.trim() || 'vn_live_SUA_CHAVE';
-    const base = location.origin;
-    let txt = '';
-    if (tipo === 'header') txt = `X-API-Key: ${key}`;
-    if (tipo === 'query') txt = `?api_key=${key}`;
-    if (tipo === 'm3u') txt = `${base}/v1/playlist.m3u?api_key=${key}`;
-    copy(txt);
-};
-
-window.copiarEndpoint = function(base, rota) {
-    const key = document.getElementById('doc-api-key').value.trim() || 'vn_live_SUA_CHAVE';
-    const separador = rota.includes('?') ? '&' : '?';
-    copy(`${base}${rota}${separador}api_key=${key}`);
+window.copiarReq = function(baseUrl, spanId) {
+    const el = document.getElementById(spanId);
+    const key = el ? el.textContent : 'SUA_CHAVE';
+    copy(baseUrl + key);
 };
 
 window.addEventListener('hashchange', ()=>Router.handle());
