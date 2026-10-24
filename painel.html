@@ -457,7 +457,10 @@ const Views = {
       "logo": "https://image.tmdb.org/...",
       "type": "movie",
       "year": 2026,
-      "slug": "a-odisseia-2026"
+      "slug": "a-odisseia-2026",
+      "classificacao": "16",
+      "generos": ["Ação", "Aventura"],
+      "score": 8.5
     }
   ]
 }
@@ -490,7 +493,10 @@ const Views = {
       "logo": "https://image.tmdb.org/...",
       "type": "series",
       "year": 2008,
-      "slug": "breaking-bad-2008"
+      "slug": "breaking-bad-2008",
+      "classificacao": "16",
+      "generos": ["Drama", "Crime"],
+      "score": 9.5
     }
   ]
 }
@@ -554,7 +560,7 @@ const Views = {
         <!-- INFO FILME -->
         <div class="card p-6 mb-6">
           <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info text-red-500"></i> Detalhes de um Filme</h3>
-          <p class="text-xs text-gray-400 mb-4">Puxe informações ricas como sinopse, elenco, trailer e capa grande.</p>
+          <p class="text-xs text-gray-400 mb-4">Puxe informações ricas como sinopse, elenco, trailer, logo e classificação etária.</p>
           
           <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
           <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
@@ -566,14 +572,31 @@ const Views = {
           <div class="code-block text-gray-300">
 {
   "id": "2127",
+  "tipo": "filme",
   "titulo": "A ODISSEIA",
+  "titulo_original": "The Odyssey",
   "sinopse": "Um herói grego tenta voltar para casa...",
   "capa": "https://image.tmdb.org/...",
   "banner": "https://image.tmdb.org/...",
   "logo": "https://image.tmdb.org/...",
   "score": 8.5,
+  "classificacao": "16",
   "generos": ["Ação", "Aventura"],
   "trailer_url": "https://youtube.com/...",
+  "duracao": "2h 10min",
+  "elenco": [
+    {
+      "nome": "Tom Holland",
+      "personagem": "Odisseu",
+      "foto": "https://image.tmdb.org/..."
+    }
+  ],
+  "diretores": [
+    {
+      "nome": "Christopher Nolan",
+      "foto": "https://image.tmdb.org/..."
+    }
+  ],
   "url_stream": "${esc(base)}/v1/stream/a-odisseia-2026.mp4?api_key=SUA_CHAVE"
 }
           </div>
@@ -582,7 +605,7 @@ const Views = {
         <!-- INFO SÉRIE -->
         <div class="card p-6 mb-6">
           <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i class="fa-solid fa-circle-info text-purple-500"></i> Detalhes de uma Série</h3>
-          <p class="text-xs text-gray-400 mb-4">Informações da série, temporadas e episódios.</p>
+          <p class="text-xs text-gray-400 mb-4">Informações da série, logo, elenco, classificação etária, temporadas e episódios.</p>
           
           <div class="text-[10px] font-bold text-gray-500 mb-1 uppercase">Requisição (GET)</div>
           <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
@@ -594,15 +617,32 @@ const Views = {
           <div class="code-block text-gray-300">
 {
   "id": "4521",
+  "tipo": "serie",
   "titulo": "Breaking Bad",
+  "titulo_original": "Breaking Bad",
   "sinopse": "Um professor de química...",
   "capa": "https://image.tmdb.org/...",
   "banner": "https://image.tmdb.org/...",
   "logo": "https://image.tmdb.org/...",
   "score": 9.5,
+  "classificacao": "16",
   "generos": ["Drama", "Crime"],
+  "trailer_url": "https://youtube.com/...",
   "total_temporadas": 5,
   "total_episodios": 62,
+  "elenco": [
+    {
+      "nome": "Bryan Cranston",
+      "personagem": "Walter White",
+      "foto": "https://image.tmdb.org/..."
+    }
+  ],
+  "criadores": [
+    {
+      "nome": "Vince Gilligan",
+      "foto": "https://image.tmdb.org/..."
+    }
+  ],
   "temporadas": [
     {
       "numero": 1,
