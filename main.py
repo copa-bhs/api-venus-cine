@@ -3,12 +3,15 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 import httpx
+
+# AQUI ESTÁ A CORREÇÃO: Removemos Response e JSONResponse daqui
 from fastapi import (
     FastAPI, HTTPException, Query, Request, UploadFile, File, Form,
-    WebSocket, WebSocketDisconnect, Depends, Body, Response, JSONResponse,
+    WebSocket, WebSocketDisconnect, Depends, Body,
 )
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+# E adicionamos eles aqui, que é o lugar correto
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
