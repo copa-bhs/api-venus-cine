@@ -81,24 +81,37 @@ def seed_planos():
     """Cria os 4 planos padrão se a tabela estiver vazia."""
     db = SessionLocal()
     try:
+        # Apaga os planos antigos para atualizar os limites (apenas se estiver vazio)
         if db.query(Plano).count() > 0:
+            # Se já existem, atualiza os valores para garantir
+            p_free = db.query(Plano).filter_by(slug="free").first()
+            if p_free: p_free.req_mes = 10000
+            
+            p_starter = db.query(Plano).filter_by(slug="starter").first()
+            if p_starter: p_starter.req_mes = 100000
+            
+            p_pro = db.query(Plano).filter_by(slug="pro").first()
+            if p_pro: p_pro.req_mes = 500000
+            
+            db.commit()
             return
+
         db.add_all([
             Plano(slug="free", nome="Free", preco_mensal=0.0,
-                  req_mes=1000, req_por_segundo=2,
+                  req_mes=10_000, req_por_segundo=2,  # Teste: 10 mil req
                   proxy_habilitado=False, proxy_ip_limite=0, ordem=0),
             Plano(slug="starter", nome="Starter", preco_mensal=49.0,
-                  req_mes=50_000, req_por_segundo=10,
+                  req_mes=100_000, req_por_segundo=10, # App pequeno
                   proxy_habilitado=True, proxy_ip_limite=3, ordem=1),
             Plano(slug="pro", nome="Pro", preco_mensal=149.0,
-                  req_mes=500_000, req_por_segundo=50,
+                  req_mes=500_000, req_por_segundo=50, # App médio
                   proxy_habilitado=True, proxy_ip_limite=10, ordem=2),
             Plano(slug="enterprise", nome="Enterprise", preco_mensal=499.0,
-                  req_mes=-1, req_por_segundo=200,
+                  req_mes=-1, req_por_segundo=200, # Ilimitado
                   proxy_habilitado=True, proxy_ip_limite=0, ordem=3),
         ])
         db.commit()
-        print("[Billing] ✓ 4 planos criados (free, starter, pro, enterprise)")
+        print("[Billing] ✓ Planos atualizados (Free: 10k, Starter: 100k, Pro: 500k, Enterprise: Ilimitado)")
     finally:
         db.close()
 

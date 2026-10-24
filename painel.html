@@ -417,6 +417,18 @@ const Views = {
           <p class="text-xs text-gray-400 mt-1">Aprenda a integrar o Vênus API no seu sistema de forma simples e segura.</p>
         </div>
 
+        <!-- AVISO IMPORTANTE SOBRE REQUISIÇÕES -->
+        <div class="card p-6 border-yellow-500/30 mb-8 bg-yellow-500/5 relative overflow-hidden">
+          <div class="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500 rounded-full blur-[40px] opacity-10"></div>
+          <h3 class="font-bold text-yellow-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> AVISO IMPORTANTE: Como economizar requisições</h3>
+          <p class="text-sm text-gray-300 mb-3">
+            Cada requisição feita à nossa API consome 1 crédito do seu plano. Se o seu aplicativo fizer chamadas diretas (ex: abrir a tela de filmes), você vai gastar rapidamente.
+          </p>
+          <p class="text-sm text-gray-300">
+            <b>O segredo dos grandes apps:</b> Tenha o seu próprio servidor/banco de dados (Firebase, SQLite). Faça uma requisição para o Vênus API <b>1 ou 2 vezes por dia</b>, salve a lista no seu servidor, e mostre para os seus usuários a partir do <b>seu</b> banco. Assim, você usa apenas ~2 requisições por dia e tem milhares de usuários!
+          </p>
+        </div>
+
         <!-- CAMPO PARA COLAR A CHAVE -->
         <div class="card p-6 border-green-500/30 mb-8 bg-green-500/5">
           <h3 class="font-bold text-green-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-key"></i> Cole sua API Key aqui</h3>
