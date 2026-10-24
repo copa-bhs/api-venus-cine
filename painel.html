@@ -7,7 +7,6 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-<!-- Firebase SDK mantido, mas o botão está oculto no HTML -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -51,13 +50,14 @@
   .sidebar-link { transition: all .2s; border-left: 3px solid transparent; }
   .sidebar-link.active { background: rgba(229,9,20,0.1); color: #E50914; border-left-color: #E50914; }
   .sidebar-link:hover:not(.active) { background: rgba(255,255,255,0.03); color: #fff; }
+  .endpoint-row:hover { background-color: rgba(255,255,255,0.03); }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 </style>
 </head>
 <body>
 
-<!-- TELA DE ENTRADA (INICIAL) -->
+<!-- TELA DE ENTRADA -->
 <div id="view-inicial" class="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center p-4">
   <div class="card w-full max-w-sm p-8 text-center animate-fade-in-up relative overflow-hidden border-red-600/20 shadow-[0_0_50px_rgba(229,9,20,0.1)]">
     <div class="absolute -top-20 -right-20 w-40 h-40 bg-red-600 rounded-full blur-[80px] opacity-20"></div>
@@ -68,25 +68,16 @@
     <p class="text-sm text-gray-400 mb-8">A plataforma definitiva de streaming.</p>
 
     <div class="space-y-3">
-      <!-- BOTÃO DO GOOGLE OCULTO CONFORME PEDIDO -->
-      <!--
-      <button onclick="window.loginComGoogle()" class="w-full h-12 bg-white text-black font-bold rounded-xl flex items-center justify-center gap-2 hover:bg-gray-200 transition text-sm">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5"> Entrar com Google
-      </button>
-      <div class="relative flex py-2 items-center">
-          <div class="flex-grow border-t border-[#333]"></div><span class="mx-4 text-gray-600 text-xs font-bold">OU</span><div class="flex-grow border-t border-[#333]"></div>
-      </div>
-      -->
-      
+      <!-- BOTÃO DO GOOGLE OCULTO -->
       <button onclick="mostrarCadastro()" class="w-full h-12 btn-red text-sm">
-        <i class="fa-solid fa-envelope"></i> Criar conta ou Fazer Login
+        <i class="fa-solid fa-envelope"></i> Acessar Painel
       </button>
     </div>
     <p class="text-[11px] text-gray-500 mt-6">1.000 requisições grátis por 7 dias.</p>
   </div>
 </div>
 
-<!-- TELA DE CADASTRO / LOGIN EMAIL -->
+<!-- TELA DE CADASTRO / LOGIN -->
 <div id="view-cadastro" class="hidden fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center p-4">
   <div class="card w-full max-w-sm p-6 relative animate-fade-in-up">
     <button onclick="mostrarInicial()" class="absolute top-4 left-4 w-8 h-8 rounded-full bg-[#1a1a1a] flex items-center justify-center text-gray-400 hover:text-white transition"><i class="fa-solid fa-arrow-left"></i></button>
@@ -113,7 +104,7 @@
   </div>
 </div>
 
-<!-- APP (PAINEL LOGADO) -->
+<!-- APP -->
 <div id="app" class="hidden min-h-screen flex">
   <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden lg:hidden backdrop-blur-sm transition-opacity"></div>
   
@@ -121,10 +112,7 @@
     <div class="p-6 border-b border-[#262626] flex items-center justify-between">
       <div class="flex items-center gap-3">
         <span class="text-3xl font-black italic text-red-600">V</span>
-        <div>
-          <div class="text-sm font-bold text-white">Vênus API</div>
-          <div class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Cliente</div>
-        </div>
+        <div><div class="text-sm font-bold text-white">Vênus API</div><div class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Cliente</div></div>
       </div>
       <button onclick="toggleSidebar()" class="lg:hidden text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
     </div>
@@ -221,7 +209,6 @@ async function doCadastro(ev){
   try{
     const r = await Api.post('/v1/auth/register',{ nome:document.getElementById('cad-nome').value, email:document.getElementById('cad-email').value, senha:document.getElementById('cad-senha').value });
     localStorage.setItem('venus_token', r.token);
-    
     document.getElementById('modal-root').innerHTML = `
       <div class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
         <div class="card w-full max-w-lg p-8 text-center border-green-500/30">
@@ -341,7 +328,6 @@ const Views = {
   },
   
   async novaChave(){
-    // MODAL BONITO SUBSTITUINDO O PROMPT FEIO
     document.getElementById('modal-root').innerHTML = `
       <div class="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
         <div class="card w-full max-w-sm p-6 border-[#333]">
@@ -359,7 +345,6 @@ const Views = {
   async salvarNovaChave(){
     const nome = document.getElementById('nova-chave-nome').value.trim();
     if(!nome) return Toast.show('Digite um nome', 'error');
-    
     try {
       const r = await Api.post('/v1/auth/keys',{nome});
       document.getElementById('modal-root').innerHTML = `
@@ -409,7 +394,6 @@ const Views = {
   },
 
   async docs(c){
-    // Documentação SUPER EXPLICATIVA e Corrigida
     const chaveAtiva = state.chaves.find(k => k.ativa);
     const chaveExemplo = chaveAtiva ? chaveAtiva.prefixo + 'xxxxxxx' : 'vn_live_SUA_CHAVE_AQUI';
     const base = location.origin;
@@ -422,74 +406,84 @@ const Views = {
         </div>
 
         <div class="grid lg:grid-cols-2 gap-6 mb-8">
-          
           <!-- Passo 1: Autenticação -->
           <div class="card p-6 border-blue-500/20">
             <h3 class="font-bold text-blue-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-shield-halved"></i> 1. Como Autenticar</h3>
-            <p class="text-sm text-gray-400 mb-4">Você precisa enviar sua API Key em todas as requisições. Existem duas formas:</p>
+            <p class="text-sm text-gray-400 mb-4">Todas as requisições precisam da sua API Key.</p>
             
-            <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Forma 1: Pelo Cabeçalho (Header)</div>
-            <p class="text-xs text-gray-400 mb-2">Use esta forma se estiver programando (PHP, Node, Python, etc).</p>
-            <div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-gray-300 overflow-x-auto mb-4">
-              <span class="text-blue-400">X-API-Key:</span> ${esc(chaveExemplo)}
+            <div class="text-xs font-bold text-gray-500 mb-2 uppercase">Header (Para programação)</div>
+            <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+              <code class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-blue-400">X-API-Key:</span> ${esc(chaveExemplo)}</code>
+              <button onclick="copy('${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
             </div>
 
-            <div class="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Forma 2: Pela URL (Query Param)</div>
-            <p class="text-xs text-gray-400 mb-2">Use esta forma para players de TV (TiviMate, VLC, etc).</p>
-            <div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-gray-300 overflow-x-auto">
-              <span class="text-yellow-400">?api_key=</span>${esc(chaveExemplo)}
+            <div class="text-xs font-bold text-gray-500 mb-2 uppercase">Query Param (Para players e navegador)</div>
+            <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl">
+              <code class="text-xs font-mono text-gray-300 flex-1 overflow-x-auto"><span class="text-yellow-400">?api_key=</span>${esc(chaveExemplo)}</code>
+              <button onclick="copy('?api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
             </div>
           </div>
 
           <!-- Passo 2: Playlist M3U -->
           <div class="card p-6 border-purple-500/20">
-            <h3 class="font-bold text-purple-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-tv"></i> 2. Assistir na TV (Playlist M3U)</h3>
-            <p class="text-sm text-gray-400 mb-4">Para assistir no TiviMate, IPTV Smarters ou VLC, você não precisa programar nada. Apenas copie a URL abaixo e cole no aplicativo:</p>
-            
-            <div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-green-400 overflow-x-auto break-all mb-4">
-              ${esc(base)}/v1/playlist.m3u?api_key=${esc(chaveExemplo)}
+            <h3 class="font-bold text-purple-400 mb-4 flex items-center gap-2"><i class="fa-solid fa-tv"></i> 2. Playlist M3U (TV)</h3>
+            <p class="text-sm text-gray-400 mb-4">Cole no TiviMate, IPTV Smarters ou VLC:</p>
+            <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+              <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/playlist.m3u?api_key=${esc(chaveExemplo)}</code>
+              <button onclick="copy('${esc(base)}/v1/playlist.m3u?api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
             </div>
-            <button onclick="copy('${esc(base)}/v1/playlist.m3u?api_key=${esc(chaveExemplo)}','Link copiado!')" class="w-full h-10 rounded-lg bg-purple-600/20 border border-purple-500/30 text-xs font-bold hover:bg-purple-600 text-white transition text-purple-400">Copiar Link M3U</button>
           </div>
         </div>
 
-        <!-- Passo 3: Endpoints -->
+        <!-- Passo 3: Endpoints (LISTA COMPLETA) -->
         <div class="card p-6 mb-8">
           <h3 class="font-bold text-white mb-4 flex items-center gap-2"><i class="fa-solid fa-code text-gray-400"></i> 3. Lista de Conteúdo (Endpoints)</h3>
-          <p class="text-sm text-gray-400 mb-4">Se você está criando um aplicativo próprio, use estas rotas para puxar os dados em formato JSON:</p>
-          <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-              <thead>
-                <tr class="border-b border-[#333] text-xs text-gray-500 uppercase">
-                  <th class="pb-3 px-2">O que faz</th>
-                  <th class="pb-3 px-2">URL</th>
-                </tr>
-              </thead>
-              <tbody class="text-sm">
-                ${[
-                  ['Listar Filmes','/v1/filmes?page=1'],
-                  ['Listar Séries','/v1/series?page=1'],
-                  ['Listar Canais','/v1/canais?page=1'],
-                  ['Pesquisar Título','/v1/buscar?q=vingadores'],
-                  ['Detalhes de um Filme','/v1/info/filme/ID_DO_FILME']
-                ].map(([d,e])=>`
-                  <tr class="border-b border-[#222] hover:bg-[#1a1a1a] transition">
-                    <td class="py-3 px-2 text-gray-300 font-bold">${d}</td>
-                    <td class="py-3 px-2 font-mono text-xs text-green-400 bg-[#0a0a0a] rounded">${e}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+          <p class="text-sm text-gray-400 mb-4">Use estas rotas para puxar os dados em formato JSON no seu sistema:</p>
+          
+          <div class="space-y-1">
+            ${[
+              ['Listar Filmes', '/v1/filmes?page=1', 'Mostra os filmes paginados'],
+              ['Listar Séries', '/v1/series?page=1', 'Mostra as séries paginadas'],
+              ['Listar Canais', '/v1/canais?page=1', 'Mostra os canais paginados'],
+              ['Buscar Título', '/v1/buscar?q=vingadores', 'Pesquisa em todo o catálogo'],
+              ['Categorias', '/v1/categorias', 'Lista todas as categorias (Ação, Comédia...)'],
+              ['Filtrar por Categoria', '/v1/filmes?categoria=Ação', 'Ex: ver só filmes de Ação'],
+              ['Detalhes do Filme', '/v1/info/filme/2127', 'Sinopse, capa, trailer, elenco'],
+              ['Detalhes da Série', '/v1/info/serie/4521', 'Episódios e temporadas'],
+              ['Stream de Vídeo', '/v1/stream/homem-aranha-2017', 'Link direto para o player (.mp4)']
+            ].map(([titulo, rota, desc])=>`
+              <div class="endpoint-row flex flex-col sm:flex-row sm:items-center justify-between p-3 border-b border-[#222] rounded-lg transition">
+                <div class="mb-2 sm:mb-0">
+                  <div class="text-sm text-gray-200 font-bold">${titulo}</div>
+                  <div class="text-xs text-gray-500">${desc}</div>
+                </div>
+                <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] px-3 py-2 rounded-lg">
+                  <code class="text-xs font-mono text-green-400 flex-1 sm:flex-none">${rota}</code>
+                  <button onclick="copy('${esc(base)}${rota}')" class="text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i></button>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
 
-        <!-- Passo 4: Como testar no celular -->
+        <!-- Passo 4: Exemplos Práticos -->
         <div class="card p-6 border-yellow-500/20">
-          <h3 class="font-bold text-yellow-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation"></i> Como testar (Passo a Passo)</h3>
-          <p class="text-sm text-gray-400">1. Copie sua API Key em "Minhas API Keys".</p>
-          <p class="text-sm text-gray-400">2. Pegue o link da Playlist M3U acima.</p>
-          <p class="text-sm text-gray-400">3. Cole no TiviMate ou IPTV Smarters e mande carregar.</p>
-          <p class="text-sm text-gray-400">4. Os filmes e séries vão aparecer automaticamente.</p>
+          <h3 class="font-bold text-yellow-400 mb-2 flex items-center gap-2"><i class="fa-solid fa-terminal"></i> 4. Exemplos Práticos</h3>
+          <p class="text-sm text-gray-400 mb-4">Se você for testar no navegador ou no Postman, a URL completa fica assim:</p>
+          
+          <div class="text-xs font-bold text-gray-500 mb-1 uppercase">Exemplo: Listar Filmes</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/filmes?page=1&api_key=${esc(chaveExemplo)}</code>
+            <button onclick="copy('${esc(base)}/v1/filmes?page=1&api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+
+          <div class="text-xs font-bold text-gray-500 mb-1 uppercase">Exemplo: Buscar Vingadores</div>
+          <div class="flex items-center gap-2 bg-[#0a0a0a] border border-[#222] p-3 rounded-xl mb-4">
+            <code class="text-xs font-mono text-green-400 flex-1 overflow-x-auto break-all">${esc(base)}/v1/buscar?q=vingadores&api_key=${esc(chaveExemplo)}</code>
+            <button onclick="copy('${esc(base)}/v1/buscar?q=vingadores&api_key=${esc(chaveExemplo)}')" class="text-gray-500 hover:text-white px-2"><i class="fa-regular fa-copy"></i></button>
+          </div>
+
+          <p class="text-xs text-yellow-500 font-bold mt-2">Dica: O "page=1" significa que é a página 1. Se quiser ver mais itens, mude para page=2, page=3, etc.</p>
         </div>
       </div>
     `;
