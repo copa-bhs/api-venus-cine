@@ -7,10 +7,10 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-<!-- Firebase SDK para Login com Google -->
+<!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithRedirect, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAvTri3e0L1r5Z60RexRLwdAD9GKD7aYas",
@@ -25,39 +25,57 @@
   const auth = getAuth(app);
   const provider = new GoogleAuthProvider();
   
-  // Força o Google a perguntar qual conta usar
+  // Força a tela de seleção de contas
   provider.setCustomParameters({ prompt: 'select_account' });
 
-  // 1. Função que inicia o redirecionamento para o Google
   window.loginComGoogle = async function() {
     try {
       await signInWithRedirect(auth, provider);
     } catch (error) {
-      alert('Falha ao iniciar login: ' + error.message);
+      alert('Erro ao iniciar login: ' + error.message);
     }
   };
 
-  // 2. Função que captura o retorno do Google após o redirecionamento
-  window.verificarRetornoGoogle = async function() {
-    try {
-      const result = await getRedirectResult(auth);
-      if (result && result.user) {
-        // Mostra um aviso de carregamento enquanto envia pro backend
-        document.getElementById('view-inicial').innerHTML = '<div class="text-center"><i class="fa-solid fa-spinner fa-spin text-4xl text-red-600"></i><p class="mt-4 text-gray-400">Entrando...</p></div>';
+  // ESTA É A MÁGICA: Fica escutando o Firebase.
+  // Sempre que o usuário logar (por redirect ou já estar cacheado), ele entra aqui.
+  window.ouvirFirebase = function() {
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Se chegou aqui, o Google logou com sucesso!
+        document.getElementById('view-inicial').innerHTML = '<div class="text-center"><i class="fa-solid fa-spinner fa-spin text-4xl text-red-600"></i><p class="mt-4 text-gray-400">Autenticando...</p></div>';
         
-        const idToken = await result.user.getIdToken();
-        const res = await fetch('/v1/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idToken: idToken })
-        });
-        
-        if (res.ok) { location.reload(); } 
-        else { alert('Erro ao validar login no servidor.'); location.reload(); }
+        try {
+          const idToken = await user.getIdToken();
+          
+          // Envia o token para o nosso backend Python criar a sessão
+          const res = await fetch('/v1/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken: idToken })
+          });
+          
+          if (res.ok) {
+            // Backend criou o cookie. Recarrega a página para entrar no painel.
+            location.reload(); 
+          } else {
+            const erro = await res.json();
+            alert('Erro no servidor: ' + erro.detail);
+            await signOut(auth); // Se o backend falhar, desloga do Google para tentar de novo
+            location.reload();
+          }
+        } catch (e) {
+          alert('Erro: ' + e.message);
+        }
+      } else {
+        // Se não tem usuário no Firebase, só verifica se já tem sessão no backend (email/senha)
+        if (typeof iniciarPainel === 'function') iniciarPainel();
       }
-    } catch (error) {
-      console.error("Erro no retorno do Google:", error);
-    }
+    });
+  };
+
+  // Função para deslogar do Google também
+  window.deslogarGoogle = async function() {
+    try { await signOut(auth); } catch (e) {}
   };
 </script>
 
@@ -124,7 +142,6 @@
 
     <div id="auth-erro" class="hidden mb-4 text-xs text-red-400 bg-red-600/10 border border-red-600/30 rounded-lg p-2 text-center"></div>
 
-    <!-- Form Cadastro -->
     <form id="form-cadastro" onsubmit="doCadastro(event)" class="space-y-3">
       <div><input id="cad-nome" type="text" class="input-dark" required placeholder="Nome completo"></div>
       <div><input id="cad-email" type="email" class="input-dark" required placeholder="E-mail"></div>
@@ -132,7 +149,6 @@
       <button type="submit" id="btn-cadastro" class="w-full h-12 btn-red mt-4">Criar minha conta</button>
     </form>
 
-    <!-- Form Login -->
     <form id="form-login" onsubmit="doLogin(event)" class="space-y-3 hidden">
       <div><input id="login-email" type="email" class="input-dark" required placeholder="E-mail"></div>
       <div><input id="login-senha" type="password" class="input-dark" required placeholder="Senha"></div>
@@ -145,7 +161,7 @@
   </div>
 </div>
 
-<!-- PAINEL (SÓ APARECE SE ESTIVER LOGADO) -->
+<!-- PAINEL -->
 <div id="app" class="hidden">
   <div class="flex min-h-screen">
     <aside class="w-64 bg-[#0f0f0f] border-r border-[#262626] flex flex-col fixed inset-y-0 left-0 z-40">
@@ -185,7 +201,6 @@
 
 <script>
 const state = { cliente:null, plano:null, chaves:[] };
-
 const Toast = {
   show(msg, type='info') {
     const el=document.createElement('div');
@@ -230,7 +245,11 @@ const Api = {
     const opts = { method, credentials:'include' };
     if (body) { opts.headers={'Content-Type':'application/json'}; opts.body = JSON.stringify(body); }
     const r = await fetch(path, opts);
-    if (r.status === 401 && !path.includes('/auth/login')) { mostrarInicial(); throw new Error('Sessão expirada'); }
+    if (r.status === 401 && !path.includes('/auth/login') && !path.includes('/auth/me')) { 
+        if(typeof deslogarGoogle === 'function') deslogarGoogle();
+        mostrarInicial(); 
+        throw new Error('Sessão expirada'); 
+    }
     if (!r.ok) { let d='Erro'; try{ d=(await r.json()).detail }catch{} throw new Error(d); }
     return r.json();
   },
@@ -260,9 +279,7 @@ async function doCadastro(ev){
     document.getElementById('modal-root').innerHTML = `
       <div class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="card w-full max-w-lg p-8 text-center border-green-500/30">
-          <div class="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-            <i class="fa-solid fa-check text-3xl text-green-400"></i>
-          </div>
+          <div class="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4"><i class="fa-solid fa-check text-3xl text-green-400"></i></div>
           <h3 class="text-xl font-black mb-1">Conta criada com sucesso!</h3>
           <p class="text-sm text-gray-400 mb-6">Sua API Key inicial foi gerada.</p>
           <div class="key-box text-green-400 mb-4">${esc(r.api_key)}</div>
@@ -275,7 +292,11 @@ async function doCadastro(ev){
   finally{ btn.disabled=false; btn.innerHTML='Criar minha conta'; }
 }
 
-async function fazerLogout(){ await Api.post('/v1/auth/logout'); mostrarInicial(); }
+async function fazerLogout(){ 
+    await Api.post('/v1/auth/logout'); 
+    if (typeof deslogarGoogle === 'function') await deslogarGoogle();
+    mostrarInicial(); 
+}
 
 async function iniciarPainel(){
   try{
@@ -286,7 +307,10 @@ async function iniciarPainel(){
     document.getElementById('app').classList.remove('hidden');
     document.getElementById('saldo-text').textContent = `${state.cliente.uso_mes} / ${state.plano.req_mes<0?'∞':state.plano.req_mes}`;
     Router.handle();
-  }catch(e){ mostrarInicial(); }
+  }catch(e){ 
+    // Se o backend não tiver sessão, mostra a tela inicial (o onAuthStateChanged já vai saber se o Firebase tem login)
+    mostrarInicial(); 
+  }
 }
 
 const Router = {
@@ -316,126 +340,58 @@ const Views = {
     const pct = state.plano.req_mes>0 ? Math.min(100,(state.cliente.uso_mes/state.plano.req_mes)*100) : 0;
     c.innerHTML = `
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div class="card p-6 relative overflow-hidden">
-          <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500 rounded-full blur-[40px] opacity-20"></div>
-          <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Requisições Feitas</div>
-          <div class="text-4xl font-black">${state.cliente.uso_mes}</div>
-        </div>
-        <div class="card p-6 relative overflow-hidden">
-          <div class="absolute -right-4 -top-4 w-20 h-20 bg-purple-500 rounded-full blur-[40px] opacity-20"></div>
-          <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Limite do Plano</div>
-          <div class="text-4xl font-black">${state.plano.req_mes<0?'∞':state.plano.req_mes}</div>
-        </div>
-        <div class="card p-6 relative overflow-hidden border-yellow-500/30">
-          <div class="absolute -right-4 -top-4 w-20 h-20 bg-yellow-500 rounded-full blur-[40px] opacity-20"></div>
-          <div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Plano Atual</div>
-          <div class="text-3xl font-black text-yellow-400 uppercase">${state.plano.nome}</div>
-          <div class="text-xs text-gray-400 mt-1">Expira em ${new Date(state.plano.expira_em).toLocaleDateString()}</div>
-        </div>
+        <div class="card p-6 relative overflow-hidden"><div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500 rounded-full blur-[40px] opacity-20"></div><div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Requisições Feitas</div><div class="text-4xl font-black">${state.cliente.uso_mes}</div></div>
+        <div class="card p-6 relative overflow-hidden"><div class="absolute -right-4 -top-4 w-20 h-20 bg-purple-500 rounded-full blur-[40px] opacity-20"></div><div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Limite do Plano</div><div class="text-4xl font-black">${state.plano.req_mes<0?'∞':state.plano.req_mes}</div></div>
+        <div class="card p-6 relative overflow-hidden border-yellow-500/30"><div class="absolute -right-4 -top-4 w-20 h-20 bg-yellow-500 rounded-full blur-[40px] opacity-20"></div><div class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Plano Atual</div><div class="text-3xl font-black text-yellow-400 uppercase">${state.plano.nome}</div><div class="text-xs text-gray-400 mt-1">Expira em ${new Date(state.plano.expira_em).toLocaleDateString()}</div></div>
       </div>
       <div class="card p-6 rounded-2xl">
-        <div class="flex justify-between items-center mb-4">
-          <div class="text-sm font-bold text-gray-300">Consumo Mensal</div>
-          <div class="text-xs font-bold text-gray-500">${pct.toFixed(1)}%</div>
-        </div>
-        <div class="h-4 bg-[#1a1a1a] rounded-full overflow-hidden">
-          <div class="h-full bg-gradient-to-r from-red-600 to-red-400" style="width:${pct}%"></div>
-        </div>
+        <div class="flex justify-between items-center mb-4"><div class="text-sm font-bold text-gray-300">Consumo Mensal</div><div class="text-xs font-bold text-gray-500">${pct.toFixed(1)}%</div></div>
+        <div class="h-4 bg-[#1a1a1a] rounded-full overflow-hidden"><div class="h-full bg-gradient-to-r from-red-600 to-red-400" style="width:${pct}%"></div></div>
       </div>
     `;
   },
-
   async keys(c){
     const data = await Api.get('/v1/auth/keys');
     c.innerHTML = `
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h2 class="text-xl font-bold">Gerenciar Chaves</h2>
-          <p class="text-xs text-gray-500">Use estas chaves para autenticar suas requisições.</p>
-        </div>
-        <button onclick="Views.novaChave()" class="h-10 px-6 btn-red text-sm"><i class="fa-solid fa-plus mr-2"></i> Nova Chave</button>
-      </div>
+      <div class="flex justify-between items-center mb-8"><div><h2 class="text-xl font-bold">Gerenciar Chaves</h2><p class="text-xs text-gray-500">Use estas chaves para autenticar suas requisições.</p></div><button onclick="Views.novaChave()" class="h-10 px-6 btn-red text-sm"><i class="fa-solid fa-plus mr-2"></i> Nova Chave</button></div>
       <div class="grid gap-4">
         ${data.items.map(k=>`
           <div class="card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div>
-              <div class="text-sm font-bold text-white mb-1">${esc(k.nome)}</div>
-              <div class="text-xs text-gray-500 font-mono bg-[#1a1a1a] px-3 py-1 rounded inline-block">${esc(k.prefixo)}••••••••</div>
-            </div>
-            <div class="flex items-center gap-4">
-              ${k.ativa 
-                ? `<span class="text-[10px] font-bold bg-green-500/20 text-green-400 px-2 py-1 rounded">ATIVA</span>
-                   <button onclick="Views.revogar(${k.id})" class="h-8 px-4 rounded-lg bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500 hover:text-white transition">Revogar</button>` 
-                : `<span class="text-[10px] font-bold bg-gray-500/20 text-gray-400 px-2 py-1 rounded">REVOGADA</span>`}
-            </div>
+            <div><div class="text-sm font-bold text-white mb-1">${esc(k.nome)}</div><div class="text-xs text-gray-500 font-mono bg-[#1a1a1a] px-3 py-1 rounded inline-block">${esc(k.prefixo)}••••••••</div></div>
+            <div class="flex items-center gap-4">${k.ativa ? `<span class="text-[10px] font-bold bg-green-500/20 text-green-400 px-2 py-1 rounded">ATIVA</span><button onclick="Views.revogar(${k.id})" class="h-8 px-4 rounded-lg bg-red-500/10 text-red-500 text-xs font-bold hover:bg-red-500 hover:text-white transition">Revogar</button>` : `<span class="text-[10px] font-bold bg-gray-500/20 text-gray-400 px-2 py-1 rounded">REVOGADA</span>`}</div>
           </div>
         `).join('')}
       </div>
     `;
   },
-  
   async novaChave(){
     const nome = prompt("Dê um nome para esta chave (ex: Produção, Teste):");
     if(!nome) return;
     const r = await Api.post('/v1/auth/keys',{nome});
     document.getElementById('modal-root').innerHTML = `
       <div class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="card w-full max-w-lg p-8 text-center">
-          <h3 class="text-xl font-black mb-4">Chave Criada!</h3>
-          <div class="key-box text-green-400 mb-6">${esc(r.chave)}</div>
-          <button onclick="copy('${esc(r.chave)}','Copiado!')" class="w-full h-12 btn-red">Copiar Chave</button>
-          <button onclick="document.getElementById('modal-root').innerHTML='';Router.render()" class="w-full h-12 mt-2 text-gray-400 hover:text-white text-sm">Fechar</button>
-        </div>
+        <div class="card w-full max-w-lg p-8 text-center"><h3 class="text-xl font-black mb-4">Chave Criada!</h3><div class="key-box text-green-400 mb-6">${esc(r.chave)}</div><button onclick="copy('${esc(r.chave)}','Copiado!')" class="w-full h-12 btn-red">Copiar Chave</button><button onclick="document.getElementById('modal-root').innerHTML='';Router.render()" class="w-full h-12 mt-2 text-gray-400 hover:text-white text-sm">Fechar</button></div>
       </div>`;
   },
-  
-  async revogar(id){
-    if(!confirm('Tem certeza? Isso quebrará qualquer sistema usando esta chave.')) return;
-    await Api.del('/v1/auth/keys/'+id);
-    Toast.show('Chave revogada');
-    Router.render();
-  },
-
+  async revogar(id){ if(!confirm('Tem certeza? Isso quebrará qualquer sistema usando esta chave.')) return; await Api.del('/v1/auth/keys/'+id); Toast.show('Chave revogada'); Router.render(); },
   async plano(c){
     const planos = await Api.get('/v1/plans');
     c.innerHTML = `
-      <div class="mb-8">
-        <h2 class="text-xl font-bold">Planos Disponíveis</h2>
-        <p class="text-xs text-gray-500">Faça upgrade para liberar mais requisições e acesso ao proxy.</p>
-      </div>
+      <div class="mb-8"><h2 class="text-xl font-bold">Planos Disponíveis</h2><p class="text-xs text-gray-500">Faça upgrade para liberar mais requisições e acesso ao proxy.</p></div>
       <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         ${planos.items.map(p=>`
-          <div class="card p-6 text-center ${p.slug==='pro'?'border-red-600/50 shadow-[0_0_30px_rgba(229,9,20,0.1)]':''}">
-            <div class="text-xs font-bold ${p.slug==='pro'?'text-red-500':'text-gray-400'} uppercase mb-2">${esc(p.nome)}</div>
-            <div class="text-4xl font-black mb-4">R$ ${p.preco_mensal}</div>
-            <div class="text-xs text-gray-400 mb-6">${p.req_mes<0?'Ilimitado':p.req_mes+' req/mês'}</div>
-            <button onclick="Toast.show('Checkout em breve!','info')" class="w-full h-10 rounded-xl border border-[#333] text-xs font-bold hover:bg-[#1a1a1a] transition">Assinar</button>
-          </div>
+          <div class="card p-6 text-center ${p.slug==='pro'?'border-red-600/50 shadow-[0_0_30px_rgba(229,9,20,0.1)]':''}"><div class="text-xs font-bold ${p.slug==='pro'?'text-red-500':'text-gray-400'} uppercase mb-2">${esc(p.nome)}</div><div class="text-4xl font-black mb-4">R$ ${p.preco_mensal}</div><div class="text-xs text-gray-400 mb-6">${p.req_mes<0?'Ilimitado':p.req_mes+' req/mês'}</div><button onclick="Toast.show('Checkout em breve!','info')" class="w-full h-10 rounded-xl border border-[#333] text-xs font-bold hover:bg-[#1a1a1a] transition">Assinar</button></div>
         `).join('')}
       </div>
     `;
   },
-
   async docs(c){
     const k = state.chaves[0] ? state.chaves[0].prefixo : 'SUA_KEY';
     c.innerHTML = `
-      <div class="mb-8">
-        <h2 class="text-xl font-bold">Documentação Rápida</h2>
-        <p class="text-xs text-gray-500">Exemplos de como consumir a API.</p>
-      </div>
+      <div class="mb-8"><h2 class="text-xl font-bold">Documentação Rápida</h2><p class="text-xs text-gray-500">Exemplos de como consumir a API.</p></div>
       <div class="space-y-4">
-        <div class="card p-6 rounded-2xl">
-          <h3 class="font-bold text-sm mb-4 text-blue-400"><i class="fa-solid fa-code mr-2"></i> Requisição Básica</h3>
-          <div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-green-400 overflow-x-auto">
-            curl -H "X-API-Key: vn_live_${k}..." https://api.venusdev.xyz/v1/filmes
-          </div>
-        </div>
-        <div class="card p-6 rounded-2xl">
-          <h3 class="font-bold text-sm mb-4 text-purple-400"><i class="fa-solid fa-tv mr-2"></i> Playlist M3U (TiviMate/VLC)</h3>
-          <div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-green-400 break-all">
-            https://api.venusdev.xyz/v1/playlist.m3u?api_key=vn_live_${k}...
-          </div>
-        </div>
+        <div class="card p-6 rounded-2xl"><h3 class="font-bold text-sm mb-4 text-blue-400"><i class="fa-solid fa-code mr-2"></i> Requisição Básica</h3><div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-green-400 overflow-x-auto">curl -H "X-API-Key: vn_live_${k}..." https://api.venusdev.xyz/v1/filmes</div></div>
+        <div class="card p-6 rounded-2xl"><h3 class="font-bold text-sm mb-4 text-purple-400"><i class="fa-solid fa-tv mr-2"></i> Playlist M3U (TiviMate/VLC)</h3><div class="bg-[#0a0a0a] border border-[#222] p-4 rounded-xl text-xs font-mono text-green-400 break-all">https://api.venusdev.xyz/v1/playlist.m3u?api_key=vn_live_${k}...</div></div>
       </div>
     `;
   }
@@ -443,9 +399,9 @@ const Views = {
 
 window.addEventListener('hashchange', ()=>Router.handle());
 window.addEventListener('DOMContentLoaded', ()=>{
-    // 3. Verifica se o usuário está voltando do redirecionamento do Google
-    verificarRetornoGoogle();
-    // Inicia o painel normalmente (caso já esteja logado)
+    // Inicia o observador do Firebase. Ele decide se mostra o painel ou a tela de login.
+    window.ouvirFirebase();
+    // Tenta carregar o painel caso o usuário já esteja logado por email.
     iniciarPainel();
 });
 </script>
