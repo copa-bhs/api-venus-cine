@@ -87,7 +87,7 @@ def _card_app(item, tipo=None):
 async def startup():
     criar_tabelas()
     seed_planos()
-    init_firebase() # <-- ADICIONADO AQUI
+    init_firebase()
     if load_index_from_disk():
         _rebuild_slugs(); sincronizar(_FILMES, _SERIES, _CANAIS); print(f"[✓] Carregado: {_stats()}")
 
@@ -111,9 +111,6 @@ def admin_panel(request: Request):
     p = BASE_DIR / "index.html"
     return FileResponse(p) if p.exists() else {"erro": "index.html não encontrado"}
 
-# ==========================================================
-# PROVEDORES IPTV (CRUD VIA FIRESTORE)
-# ==========================================================
 @app.get("/admin/provedores")
 def listar_provedores():
     db = get_firestore()
@@ -144,9 +141,6 @@ def deletar_provedor(pid: str):
     db.collection("provedores").document(pid).delete()
     return {"ok": True}
 
-# ==========================================================
-# IPTV BUSCA E IMPORTAÇÃO (MULTI-PROVEDOR)
-# ==========================================================
 class IPTVAddPayload(BaseModel):
     id: str; tipo: str; titulo: str; capa: Optional[str] = None; ano: Optional[int] = None; url: Optional[str] = None; added_by_name: Optional[str] = None; added_by_uid: Optional[str] = None
 class IPTVLotePayload(BaseModel):
@@ -265,9 +259,6 @@ async def importar_lote_bg(provedor_id: str = Query(...), tipo: str = Query(...)
 @app.get("/admin/iptv/importar-lote-bg/status")
 async def importar_lote_bg_status(): return {"ativo": _IMPORT_ATIVO, "logs": _IMPORT_LOGS, "stats": _stats()}
 
-# ==========================================================
-# ROTAS DE CATÁLOGO E SISTEMA (MANTIDAS DO ORIGINAL)
-# ==========================================================
 @app.get("/status")
 async def status(): return {"stats": _stats(), "sync_ativo": _SYNC_ATIVO, "proxy": {"slugs_carregados": total_slugs(), **proxy_stats()}}
 
@@ -550,9 +541,6 @@ async def proxy_por_slug(slug_path: str, request: Request):
 @app.get("/proxy/stats")
 def proxy_monitor(): return {"slugs_carregados": total_slugs(), **proxy_stats()}
 
-# ==========================================================
-# ROTAS DE CLIENTES E FATURAMENTO (DO MÓDULO DE MONETIZAÇÃO)
-# ==========================================================
 class LoginPayload(BaseModel): email: str; senha: str
 class RegistrarPayload(BaseModel): nome: str; email: str; senha: str; empresa: Optional[str] = None
 class CriarChavePayload(BaseModel): nome: str
@@ -567,9 +555,10 @@ def registrar(payload: RegistrarPayload, db: Session = Depends(get_db)):
     db.add(cliente); db.commit(); db.refresh(cliente)
     raw, h, prefixo = gerar_chave()
     db.add(ApiKey(cliente_id=cliente.id, chave_hash=h, prefixo=prefixo, nome="primeira-chave", ativa=True)); db.commit()
+    
     token = criar_token_sessao(cliente.id)
-    resp = JSONResponse({"ok": True, "cliente_id": cliente.id, "api_key": raw, "prefixo": prefixo, "mensagem": "Conta criada!"})
-    resp.set_cookie("sessao", token, httponly=True, secure=False, samesite="lax", max_age=30*24*3600)
+    resp = JSONResponse({"ok": True, "cliente_id": cliente.id, "api_key": raw, "prefixo": prefixo, "token": token, "mensagem": "Conta criada!"})
+    resp.set_cookie("sessao", token, httponly=True, secure=True, samesite="lax", max_age=30*24*3600)
     return resp
 
 @app.post("/v1/auth/login")
@@ -577,9 +566,10 @@ def login(payload: LoginPayload, db: Session = Depends(get_db)):
     c = db.query(Cliente).filter_by(email=payload.email.lower()).first()
     if not c or not c.senha_hash or not verificar_senha(payload.senha, c.senha_hash): raise HTTPException(401, "Email ou senha inválidos.")
     if not c.ativo: raise HTTPException(403, "Conta suspensa.")
+    
     token = criar_token_sessao(c.id)
-    resp = JSONResponse({"ok": True, "cliente_id": c.id})
-    resp.set_cookie("sessao", token, httponly=True, secure=False, samesite="lax", max_age=30*24*3600)
+    resp = JSONResponse({"ok": True, "cliente_id": c.id, "token": token})
+    resp.set_cookie("sessao", token, httponly=True, secure=True, samesite="lax", max_age=30*24*3600)
     return resp
 
 @app.post("/v1/auth/logout")
@@ -843,40 +833,32 @@ def admin_marcar_paga(fid: int, db: Session = Depends(get_db)):
     if not f: raise HTTPException(404)
     f.status = "paga"; f.paga_em = datetime.utcnow(); db.commit(); return {"ok": True}
 
-# ==========================================================
-# LOGIN COM GOOGLE (FIREBASE AUTH)
-# ==========================================================
 class GoogleLoginPayload(BaseModel):
     idToken: str
 
 @app.post("/v1/auth/google")
 def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
     from firebase_admin import auth as fb_auth
-    init_firebase() # <-- ADICIONADO AQUI PARA GARANTIR QUE O FIREBASE ESTEJA PRONTO
+    init_firebase()
     try:
         decoded_token = fb_auth.verify_id_token(payload.idToken)
         email = decoded_token.get("email")
         nome = decoded_token.get("name", "Usuário Google")
-        if not email:
-            raise HTTPException(400, "Token do Google não contém email.")
+        if not email: raise HTTPException(400, "Token do Google não contém email.")
     except Exception as e:
         raise HTTPException(401, f"Token inválido: {e}")
 
     c = db.query(Cliente).filter_by(email=email.lower()).first()
     
-    # Se o cliente não existir, cria a conta automaticamente
     if not c:
         plano_free = db.query(Plano).filter_by(slug="free").first()
         c = Cliente(nome=nome, email=email.lower(), senha_hash=None, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=7))
         db.add(c); db.commit(); db.refresh(c)
-        
-        # Gera a primeira API Key
         raw, h, prefixo = gerar_chave()
         db.add(ApiKey(cliente_id=c.id, chave_hash=h, prefixo=prefixo, nome="primeira-chave", ativa=True)); db.commit()
     
     token = criar_token_sessao(c.id)
-    resp = JSONResponse({"ok": True, "cliente_id": c.id})
-    # secure=True para HTTPS
+    resp = JSONResponse({"ok": True, "cliente_id": c.id, "token": token})
     resp.set_cookie("sessao", token, httponly=True, secure=True, samesite="lax", max_age=30*24*3600)
     return resp
 
