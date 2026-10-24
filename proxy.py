@@ -99,22 +99,13 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     if not url or not url.strip(): raise HTTPException(404, "Item sem URL.")
 
     if request.method == "OPTIONS":
-        return StreamingResponse(
-            iter([]), 
-            status_code=200, 
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Max-Age": "3600",
-            }
-        )
+        return StreamingResponse(iter([]), status_code=200, headers={"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS", "Access-Control-Allow-Headers": "*", "Access-Control-Max-Age": "3600"})
 
     client_ip = request.client.host if request.client else "unknown"
     if _active_total >= PROXY_MAX_CONCURRENT: raise HTTPException(503, "Servidor no limite.")
     if _active_by_ip.get(client_ip, 0) >= PROXY_MAX_PER_IP: raise HTTPException(429, "Limite por IP.")
 
-    headers = {"User-Agent": USER_AGENT}
+    headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     if "range" in request.headers: headers["Range"] = request.headers["range"]
     if "if-modified-since" in request.headers: headers["If-Modified-Since"] = request.headers["if-modified-since"]
 
@@ -151,7 +142,6 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     for h in ("content-type", "content-length", "content-range", "accept-ranges", "last-modified", "etag"):
         if h in upstream.headers: resp_headers[h] = upstream.headers[h]
     
-    # Cabeçalhos essenciais para o app de TV (ExoPlayer/TiviMate) aceitar o vídeo
     resp_headers["accept-ranges"] = "bytes"
     resp_headers["cache-control"] = "no-store"
     resp_headers["Access-Control-Allow-Origin"] = "*"
