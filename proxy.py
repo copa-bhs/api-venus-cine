@@ -98,7 +98,6 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     if not PROXY_ENABLED: raise HTTPException(404, "Proxy desativado.")
     if not url or not url.strip(): raise HTTPException(404, "Item sem URL.")
 
-    # ⚡ 1. Tratamento de OPTIONS (Preflight CORS) para o Canvas
     if request.method == "OPTIONS":
         return StreamingResponse(
             iter([]), 
@@ -152,14 +151,14 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     for h in ("content-type", "content-length", "content-range", "accept-ranges", "last-modified", "etag"):
         if h in upstream.headers: resp_headers[h] = upstream.headers[h]
     
-    # ⚡ 2. Headers de CORS liberados para o Canvas (Ambient Light)
+    # Cabeçalhos essenciais para o app de TV (ExoPlayer/TiviMate) aceitar o vídeo
     resp_headers["accept-ranges"] = "bytes"
     resp_headers["cache-control"] = "no-store"
     resp_headers["Access-Control-Allow-Origin"] = "*"
     resp_headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
     resp_headers["Access-Control-Allow-Headers"] = "*"
     resp_headers["Access-Control-Expose-Headers"] = "*" 
-    resp_headers["Cross-Origin-Resource-Policy"] = "cross-origin" # Permite ao Chrome ler os pixels do vídeo
+    resp_headers["Cross-Origin-Resource-Policy"] = "cross-origin"
 
     media_type = upstream.headers.get("content-type", "video/mp4")
     return StreamingResponse(_streamer(), status_code=upstream.status_code, headers=resp_headers, media_type=media_type)
