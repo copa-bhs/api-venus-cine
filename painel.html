@@ -10,7 +10,7 @@
 <!-- Firebase SDK para Login com Google -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAvTri3e0L1r5Z60RexRLwdAD9GKD7aYas",
@@ -28,27 +28,35 @@
   // Força o Google a perguntar qual conta usar
   provider.setCustomParameters({ prompt: 'select_account' });
 
+  // 1. Função que inicia o redirecionamento para o Google
   window.loginComGoogle = async function() {
-    const btn = document.getElementById('btn-google');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...';
-    
     try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-      const idToken = await user.getIdToken();
-
-      const res = await fetch('/v1/auth/google', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken: idToken })
-      });
-      
-      if (res.ok) { location.reload(); } 
-      else { alert('Erro ao logar com Google.'); btn.innerHTML = originalText; }
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      alert('Falha no login: ' + error.message);
-      btn.innerHTML = originalText;
+      alert('Falha ao iniciar login: ' + error.message);
+    }
+  };
+
+  // 2. Função que captura o retorno do Google após o redirecionamento
+  window.verificarRetornoGoogle = async function() {
+    try {
+      const result = await getRedirectResult(auth);
+      if (result && result.user) {
+        // Mostra um aviso de carregamento enquanto envia pro backend
+        document.getElementById('view-inicial').innerHTML = '<div class="text-center"><i class="fa-solid fa-spinner fa-spin text-4xl text-red-600"></i><p class="mt-4 text-gray-400">Entrando...</p></div>';
+        
+        const idToken = await result.user.getIdToken();
+        const res = await fetch('/v1/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idToken: idToken })
+        });
+        
+        if (res.ok) { location.reload(); } 
+        else { alert('Erro ao validar login no servidor.'); location.reload(); }
+      }
+    } catch (error) {
+      console.error("Erro no retorno do Google:", error);
     }
   };
 </script>
@@ -72,7 +80,6 @@
 <!-- TELA DE ENTRADA (INICIAL) -->
 <div id="view-inicial" class="fixed inset-0 z-50 bg-[#0a0a0a] flex items-center justify-center p-4">
   <div class="card w-full max-w-sm p-8 text-center relative overflow-hidden">
-    <!-- Detalhe visual -->
     <div class="absolute -top-20 -right-20 w-40 h-40 bg-red-600 rounded-full blur-[80px] opacity-20"></div>
 
     <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-red-500 to-red-800 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(229,9,20,0.3)]">
@@ -83,7 +90,7 @@
     <p class="text-sm text-gray-400 mb-8">O poder do streaming na sua mão.</p>
 
     <div class="space-y-3">
-      <button onclick="loginComGoogle()" id="btn-google" class="w-full h-12 btn-google text-sm">
+      <button onclick="window.loginComGoogle()" class="w-full h-12 btn-google text-sm">
         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5">
         Entrar com Google
       </button>
@@ -141,7 +148,6 @@
 <!-- PAINEL (SÓ APARECE SE ESTIVER LOGADO) -->
 <div id="app" class="hidden">
   <div class="flex min-h-screen">
-    <!-- SIDEBAR -->
     <aside class="w-64 bg-[#0f0f0f] border-r border-[#262626] flex flex-col fixed inset-y-0 left-0 z-40">
       <div class="p-6 border-b border-[#262626] flex items-center gap-3">
         <span class="text-3xl font-black italic text-red-600 drop-shadow-[0_0_10px_rgba(229,9,20,0.5)]">V</span>
@@ -161,7 +167,6 @@
       </div>
     </aside>
 
-    <!-- CONTEÚDO -->
     <div class="flex-1 ml-64 flex flex-col">
       <header class="bg-[#0a0a0a]/90 backdrop-blur sticky top-0 z-30 border-b border-[#262626] px-8 py-4 flex items-center justify-between">
         <h1 id="page-title" class="text-xl font-black">Visão Geral</h1>
@@ -181,7 +186,6 @@
 <script>
 const state = { cliente:null, plano:null, chaves:[] };
 
-// ============ HELPERS ============
 const Toast = {
   show(msg, type='info') {
     const el=document.createElement('div');
@@ -193,7 +197,6 @@ const Toast = {
 const esc = (s)=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const copy = async (txt,msg='Copiado!')=>{try{await navigator.clipboard.writeText(txt);Toast.show(msg)}catch{Toast.show('Erro ao copiar','error')}};
 
-// ============ CONTROLE DE TELAS ============
 function mostrarInicial() {
   document.getElementById('view-inicial').classList.remove('hidden');
   document.getElementById('view-cadastro').classList.add('hidden');
@@ -222,7 +225,6 @@ function alternarForm() {
   }
 }
 
-// ============ API ============
 const Api = {
   async req(method, path, body) {
     const opts = { method, credentials:'include' };
@@ -237,7 +239,6 @@ const Api = {
   del(p){ return this.req('DELETE',p); }
 };
 
-// ============ LOGIN / CADASTRO ============
 async function doLogin(ev){
   ev.preventDefault();
   const btn = document.getElementById('btn-login');
@@ -288,7 +289,6 @@ async function iniciarPainel(){
   }catch(e){ mostrarInicial(); }
 }
 
-// ============ ROUTER ============
 const Router = {
   current:'dashboard',
   handle(){
@@ -311,7 +311,6 @@ const Router = {
   }
 };
 
-// ============ VIEWS ============
 const Views = {
   async dashboard(c){
     const pct = state.plano.req_mes>0 ? Math.min(100,(state.cliente.uso_mes/state.plano.req_mes)*100) : 0;
@@ -443,7 +442,12 @@ const Views = {
 };
 
 window.addEventListener('hashchange', ()=>Router.handle());
-window.addEventListener('DOMContentLoaded', ()=>iniciarPainel());
+window.addEventListener('DOMContentLoaded', ()=>{
+    // 3. Verifica se o usuário está voltando do redirecionamento do Google
+    verificarRetornoGoogle();
+    // Inicia o painel normalmente (caso já esteja logado)
+    iniciarPainel();
+});
 </script>
 </body>
 </html>
