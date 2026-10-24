@@ -54,8 +54,6 @@
   .code-block { background: #000; border: 1px solid #222; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 12px; overflow-x: auto; white-space: pre; }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-  
-  /* Gráfico animado */
   .chart-bar { transition: height 1s ease-out; }
 </style>
 </head>
@@ -466,7 +464,7 @@ const Views = {
                 </ul>
                 ${isAtual 
                   ? `<button disabled class="w-full h-12 rounded-xl bg-white/10 text-white/50 text-sm font-bold cursor-not-allowed">Seu Plano Atual</button>` 
-                  : `<button onclick="Toast.show('Checkout em breve!','info')" class="w-full h-12 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-all shadow-lg shadow-red-600/30">Fazer Upgrade</button>`}
+                  : `<button onclick="Views.gerarPix('${p.slug}')" class="w-full h-12 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition-all shadow-lg shadow-red-600/30">Pagar com PIX</button>`}
               </div>`;
             }
             
@@ -485,11 +483,46 @@ const Views = {
               </ul>
               ${isAtual 
                 ? `<button disabled class="w-full h-11 rounded-xl bg-[#222] text-gray-500 text-xs font-bold cursor-not-allowed">Seu Plano Atual</button>` 
-                : `<button onclick="Toast.show('Checkout em breve!','info')" class="w-full h-11 rounded-xl border border-[#333] text-xs font-bold hover:bg-[#1a1a1a] hover:text-white transition text-gray-400">Fazer Upgrade</button>`}
+                : `<button onclick="Views.gerarPix('${p.slug}')" class="w-full h-11 rounded-xl border border-[#333] text-xs font-bold hover:bg-[#1a1a1a] hover:text-white transition text-gray-400">Pagar com PIX</button>`}
             </div>`;
           }).join('')}
         </div>
       </div>`;
+  },
+
+  async gerarPix(slug) {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando...';
+    
+    try {
+      const r = await Api.post('/v1/billing/checkout', { plano: slug });
+      
+      document.getElementById('modal-root').innerHTML = `
+        <div class="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in-up">
+          <div class="card w-full max-w-md p-8 text-center border-green-500/30">
+            <h3 class="text-xl font-black mb-2">Pague com PIX</h3>
+            <p class="text-xs text-gray-400 mb-6">Escaneie o QR Code abaixo no app do seu banco.</p>
+            
+            <div class="bg-white p-4 rounded-2xl inline-block mb-6 shadow-xl">
+              <img src="data:image/png;base64,${r.qr_code_base64}" class="w-48 h-48 mx-auto" />
+            </div>
+            
+            <div class="text-xs text-gray-400 mb-2">Ou copie o código:</div>
+            <div class="bg-[#0a0a0a] border border-[#333] rounded-xl p-3 mb-6 flex items-center gap-2">
+              <code class="text-[10px] font-mono text-green-400 flex-1 break-all text-left">${esc(r.qr_code_copia_cola)}</code>
+              <button onclick="copy('${esc(r.qr_code_copia_cola)}', 'Código PIX copiado!')" class="text-gray-500 hover:text-white"><i class="fa-regular fa-copy"></i></button>
+            </div>
+            
+            <p class="text-xs text-yellow-400 font-bold mb-4"><i class="fa-solid fa-circle-info"></i> O plano será ativado automaticamente após o pagamento.</p>
+            <button onclick="document.getElementById('modal-root').innerHTML=''" class="w-full h-12 rounded-xl bg-[#1a1a1a] text-gray-400 font-bold text-sm">Fechar</button>
+          </div>
+        </div>`;
+    } catch(e) {
+      Toast.show(e.message, 'error');
+      btn.disabled = false;
+      btn.innerHTML = 'Pagar com PIX';
+    }
   },
 
   async docs(c){
