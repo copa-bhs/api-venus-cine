@@ -5,23 +5,28 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import jwt
+import bcrypt
 from fastapi import Depends, HTTPException, Request
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from config import PAINEL_SECRET, STREAM_SECRET
 from db import get_db
 from billing import ApiKey, Cliente, Plano, UsoMensal
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 _RATE_BUCKET: dict[int, list[float]] = {}
 
 def hash_senha(senha: str) -> str:
-    return pwd_context.hash(senha)
+    # O bcrypt tem limite de 72 bytes. Truncamos para evitar erro.
+    senha_bytes = senha.encode('utf-8')[:72]
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(senha_bytes, salt).decode('utf-8')
 
 def verificar_senha(senha: str, hash_: str) -> bool:
+    if not hash_:
+        return False
     try:
-        return pwd_context.verify(senha, hash_)
+        senha_bytes = senha.encode('utf-8')[:72]
+        return bcrypt.checkpw(senha_bytes, hash_.encode('utf-8'))
     except Exception:
         return False
 
