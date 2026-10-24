@@ -81,7 +81,20 @@ def _normalizar_busca(texto: str) -> str:
 def _card_app(item, tipo=None):
     t = tipo or item.get("tipo") or "filme"
     tipo_app = "movie" if t == "filme" else ("series" if t == "serie" else "channel")
-    return {"id": str(item.get("id")), "title": item.get("titulo") or "", "poster": item.get("capa"), "type": tipo_app, "year": item.get("ano"), "slug": _slugify(item.get("titulo") or "", item.get("ano")), "titulo": item.get("titulo"), "capa": item.get("capa"), "tipo": t, "ano": item.get("ano"), "added_by_name": item.get("added_by_name"), "added_by_uid": item.get("added_by_uid")}
+    # Incluído o logo no retorno
+    return {
+        "id": str(item.get("id")), 
+        "title": item.get("titulo") or "", 
+        "poster": item.get("capa"), 
+        "logo": item.get("logo"),
+        "type": tipo_app, 
+        "year": item.get("ano"), 
+        "slug": _slugify(item.get("titulo") or "", item.get("ano")), 
+        "titulo": item.get("titulo"), 
+        "capa": item.get("capa"), 
+        "tipo": t, 
+        "ano": item.get("ano")
+    }
 
 @app.on_event("startup")
 async def startup():
@@ -557,13 +570,14 @@ def registrar(payload: RegistrarPayload, db: Session = Depends(get_db)):
         if not plano_free:
             raise HTTPException(500, "Erro ao configurar os planos no banco.")
 
-    cliente = Cliente(nome=payload.nome, email=payload.email.lower(), senha_hash=hash_senha(payload.senha), empresa=payload.empresa, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=7))
+    # ALTERAÇÃO AQUI: 2 dias de teste
+    cliente = Cliente(nome=payload.nome, email=payload.email.lower(), senha_hash=hash_senha(payload.senha), empresa=payload.empresa, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=2))
     db.add(cliente); db.commit(); db.refresh(cliente)
     raw, h, prefixo = gerar_chave()
     db.add(ApiKey(cliente_id=cliente.id, chave_hash=h, prefixo=prefixo, nome="primeira-chave", ativa=True)); db.commit()
     
     token = criar_token_sessao(cliente.id)
-    resp = JSONResponse({"ok": True, "cliente_id": cliente.id, "api_key": raw, "prefixo": prefixo, "token": token, "mensagem": "Conta criada!"})
+    resp = JSONResponse({"ok": True, "cliente_id": cliente.id, "api_key": raw, "prefixo": prefixo, "token": token, "mensagem": "Conta criada! Você tem 2 dias de teste."})
     resp.set_cookie("sessao", token, httponly=True, secure=True, samesite="lax", max_age=30*24*3600)
     return resp
 
@@ -784,7 +798,7 @@ def admin_criar_cliente(payload: AdminClientePayload, db: Session = Depends(get_
     if db.query(Cliente).filter_by(email=payload.email.lower()).first(): raise HTTPException(400, "Email já cadastrado.")
     plano = db.query(Plano).filter_by(slug=payload.plano).first()
     if not plano: raise HTTPException(404, "Plano inválido.")
-    dias = payload.dias if payload.dias is not None else (7 if plano.slug == "free" else 30)
+    dias = payload.dias if payload.dias is not None else (2 if plano.slug == "free" else 30)
     c = Cliente(nome=payload.nome, email=payload.email.lower(), senha_hash=hash_senha(payload.senha), empresa=payload.empresa, plano_id=plano.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=dias))
     db.add(c); db.commit(); db.refresh(c)
     raw, h, prefixo = gerar_chave()
@@ -868,7 +882,8 @@ def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
             seed_planos()
             plano_free = db.query(Plano).filter_by(slug="free").first()
             
-        c = Cliente(nome=nome, email=email.lower(), senha_hash=None, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=7))
+        # ALTERAÇÃO AQUI: 2 dias de teste para o Google também
+        c = Cliente(nome=nome, email=email.lower(), senha_hash=None, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=2))
         db.add(c); db.commit(); db.refresh(c)
         raw, h, prefixo = gerar_chave()
         db.add(ApiKey(cliente_id=c.id, chave_hash=h, prefixo=prefixo, nome="primeira-chave", ativa=True)); db.commit()
