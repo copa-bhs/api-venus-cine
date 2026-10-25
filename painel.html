@@ -121,6 +121,7 @@
       <a href="#dashboard" class="sidebar-link flex items-center gap-4 px-6 py-3 text-sm text-gray-400 font-medium" data-route="dashboard"><i class="fa-solid fa-chart-pie w-5"></i> Visão Geral</a>
       <a href="#keys" class="sidebar-link flex items-center gap-4 px-6 py-3 text-sm text-gray-400 font-medium" data-route="keys"><i class="fa-solid fa-key w-5"></i> Minhas API Keys</a>
       <a href="#plano" class="sidebar-link flex items-center gap-4 px-6 py-3 text-sm text-gray-400 font-medium" data-route="plano"><i class="fa-solid fa-crown w-5"></i> Assinatura</a>
+      <a href="#faturas" class="sidebar-link flex items-center gap-4 px-6 py-3 text-sm text-gray-400 font-medium" data-route="faturas"><i class="fa-solid fa-file-invoice-dollar w-5"></i> Pagamentos</a>
       <a href="#docs" class="sidebar-link flex items-center gap-4 px-6 py-3 text-sm text-gray-400 font-medium" data-route="docs"><i class="fa-solid fa-book w-5"></i> Documentação</a>
       <a href="#suporte" class="sidebar-link flex items-center gap-4 px-6 py-3 text-sm text-gray-400 font-medium" data-route="suporte"><i class="fa-solid fa-headset w-5"></i> Suporte</a>
     </nav>
@@ -250,7 +251,7 @@ const Router = {
     const h = location.hash.replace('#','')||'dashboard';
     this.current = h;
     document.querySelectorAll('.sidebar-link').forEach(a=>a.classList.toggle('active', a.dataset.route===h));
-    const t={dashboard:'Visão Geral',keys:'API Keys',plano:'Assinatura',docs:'Documentação',suporte:'Suporte'};
+    const t={dashboard:'Visão Geral',keys:'API Keys',plano:'Assinatura',faturas:'Pagamentos',docs:'Documentação',suporte:'Suporte'};
     document.getElementById('page-title').textContent=t[h]||h;
     this.render();
     if(window.innerWidth < 1024) { document.getElementById('sidebar').classList.add('-translate-x-full'); document.getElementById('sidebar-overlay').classList.add('hidden'); }
@@ -262,6 +263,7 @@ const Router = {
       if(this.current==='dashboard') await Views.dashboard(c);
       else if(this.current==='keys') await Views.keys(c);
       else if(this.current==='plano') await Views.plano(c);
+      else if(this.current==='faturas') await Views.faturas(c);
       else if(this.current==='docs') await Views.docs(c);
       else if(this.current==='suporte') await Views.suporte(c);
     }catch(e){ c.innerHTML = `<div class="bg-red-500/10 border border-red-500/50 p-4 rounded-xl text-red-400 font-bold text-center">Erro: ${e.message}</div>`; }
@@ -491,7 +493,11 @@ const Views = {
   },
 
   async gerarPix(slug) {
-    const btn = event.target;
+    // Pega o botão que foi clicado
+    const btn = event.target.closest('button');
+    if (!btn) return;
+
+    const textoOriginal = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Gerando...';
     
@@ -515,14 +521,82 @@ const Views = {
             </div>
             
             <p class="text-xs text-yellow-400 font-bold mb-4"><i class="fa-solid fa-circle-info"></i> O plano será ativado automaticamente após o pagamento.</p>
-            <button onclick="document.getElementById('modal-root').innerHTML=''" class="w-full h-12 rounded-xl bg-[#1a1a1a] text-gray-400 font-bold text-sm">Fechar</button>
+            
+            <!-- AQUI ESTÁ A CORREÇÃO: Ao fechar, o botão volta ao normal -->
+            <button onclick="document.getElementById('modal-root').innerHTML=''; this.closest('.card').parentElement.remove(); location.reload();" class="w-full h-12 rounded-xl bg-[#1a1a1a] text-gray-400 font-bold text-sm hover:bg-[#222] transition">Fechar</button>
           </div>
         </div>`;
+        
     } catch(e) {
       Toast.show(e.message, 'error');
+    } finally {
+      // Independente de dar erro ou sucesso, o botão volta ao estado normal
       btn.disabled = false;
-      btn.innerHTML = 'Pagar com PIX';
+      btn.innerHTML = textoOriginal;
     }
+  },
+
+  async faturas(c){
+    const data = await Api.get('/v1/billing/invoices');
+    const itens = data.items || [];
+
+    c.innerHTML = `
+      <div class="animate-fade-in-up">
+        <div class="flex justify-between items-end mb-8">
+          <div>
+            <h2 class="text-2xl font-black">Histórico de Pagamentos</h2>
+            <p class="text-xs text-gray-400 mt-1">Acompanhe suas faturas e renovações.</p>
+          </div>
+        </div>
+
+        <div class="card p-6 mb-8 border-yellow-500/20 bg-yellow-500/5">
+          <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-yellow-500/20 flex items-center justify-center flex-shrink-0">
+              <i class="fa-solid fa-calendar-check text-yellow-400 text-xl"></i>
+            </div>
+            <div>
+              <div class="text-sm font-bold text-white">Seu plano ${state.plano.nome} renova em:</div>
+              <div class="text-lg font-black text-yellow-400">${new Date(state.plano.expira_em).toLocaleDateString('pt-BR', {day: '2-digit', month: 'long', year: 'numeric'})}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-[#0f0f0f] border-b border-[#262626] text-xs text-gray-400 uppercase">
+                <tr>
+                  <th class="text-left px-6 py-4">Data</th>
+                  <th class="text-left px-6 py-4">Período</th>
+                  <th class="text-left px-6 py-4">Valor</th>
+                  <th class="text-left px-6 py-4">Status</th>
+                  <th class="text-center px-6 py-4">Ação</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.length === 0 ? '<tr><td colspan="5" class="text-center py-12 text-gray-500">Nenhum pagamento realizado ainda.</td></tr>' : 
+                itens.map(f=>`
+                  <tr class="border-b border-[#1f1f1f] hover:bg-[#0f0f0f] transition">
+                    <td class="px-6 py-4 text-gray-300">${new Date(f.criada_em).toLocaleDateString('pt-BR')}</td>
+                    <td class="px-6 py-4 text-gray-400">${esc(f.periodo)}</td>
+                    <td class="px-6 py-4 font-bold text-white">R$ ${(f.valor||0).toFixed(2)}</td>
+                    <td class="px-6 py-4">
+                      <span class="text-[10px] font-bold px-2 py-1 rounded ${f.status === 'paga' ? 'bg-green-500/20 text-green-400' : f.status === 'pendente' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}">
+                        ${esc((f.status||'').toUpperCase())}
+                      </span>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      ${f.status === 'pendente' ? `<button onclick="Router.go('plano')" class="text-xs text-red-500 hover:text-red-400 font-bold">Pagar</button>` : 
+                        f.status === 'paga' ? '<i class="fa-solid fa-check text-green-400"></i>' : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
   },
 
   async docs(c){
