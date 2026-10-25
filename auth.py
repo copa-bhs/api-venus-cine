@@ -128,6 +128,11 @@ async def get_cliente_sessao(request: Request, db: Session = Depends(get_db)) ->
         raise HTTPException(401, "Cliente não encontrado.")
     if not c.ativo:
         raise HTTPException(403, "Conta suspensa.")
+        
+    # BLOQUEIO: Se o plano expirou, não deixa logar no painel
+    if c.plano_expira_em and c.plano_expira_em < datetime.utcnow():
+        raise HTTPException(402, "Seu plano expirou. Renove para acessar o painel.")
+        
     return c
 
 def assinar_stream(slug: str, cliente_id: int, ttl_min: int = 5) -> str:

@@ -638,18 +638,6 @@ async def webhook_mercadopago(request: Request):
 
     return {"ok": True}
 
-@app.post("/webhooks/stripe")
-async def webhook_stripe(request: Request):
-    if not pagamentos.stripe: raise HTTPException(503, "Stripe não configurado.")
-    import stripe as st
-    payload = await request.body(); sig = request.headers.get("stripe-signature")
-    try: event = st.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except Exception as e: raise HTTPException(400, f"Assinatura inválida: {e}")
-    if event["type"] == "checkout.session.completed":
-        s = event["data"]["object"]; cid = int(s.get("metadata", {}).get("cliente_id", 0)); slug = s.get("metadata", {}).get("plano_slug", ""); valor = (s.get("amount_total") or 0) / 100.0
-        if cid and slug: pagamentos.ativar_plano_pago(cid, slug, "stripe", s.get("id"), valor)
-    return {"ok": True}
-
 @app.get("/v1/billing/invoices")
 def listar_faturas(cliente: Cliente = Depends(get_cliente_sessao), db: Session = Depends(get_db)):
     fs = db.query(Fatura).filter_by(cliente_id=cliente.id).order_by(Fatura.criada_em.desc()).all()
@@ -798,12 +786,23 @@ def admin_listar_clientes(db: Session = Depends(get_db)):
 def admin_atualizar_cliente(cid: int, plano: str | None = Body(None), ativo: bool | None = Body(None), dias: int | None = Body(None), db: Session = Depends(get_db)):
     c = db.query(Cliente).get(cid)
     if not c: raise HTTPException(404)
+    
     if plano is not None:
         p = db.query(Plano).filter_by(slug=plano).first()
         if not p: raise HTTPException(404, "Plano inválido.")
         c.plano_id = p.id
+
     if ativo is not None: c.ativo = ativo
-    if dias is not None: c.plano_expira_em = datetime.utcnow() + timedelta(days=dias)
+
+    # AQUI ESTÁ A MÁGICA: Se dias for 0, apaga o acesso. Se for -1, dá acesso ilimitado (Enterprise).
+    if dias is not None:
+        if dias == -1:
+            c.plano_expira_em = datetime(2099, 12, 31) # Nunca expira
+        elif dias == 0:
+            c.plano_expira_em = datetime.utcnow() - timedelta(days=1) # Já expirou ontem (bloqueia na hora)
+        else:
+            c.plano_expira_em = datetime.utcnow() + timedelta(days=dias)
+            
     db.commit(); return {"ok": True}
 
 @app.delete("/admin/clientes/{cid}")
