@@ -81,20 +81,7 @@ def _normalizar_busca(texto: str) -> str:
 def _card_app(item, tipo=None):
     t = tipo or item.get("tipo") or "filme"
     tipo_app = "movie" if t == "filme" else ("series" if t == "serie" else "channel")
-    # Incluído o logo no retorno
-    return {
-        "id": str(item.get("id")), 
-        "title": item.get("titulo") or "", 
-        "poster": item.get("capa"), 
-        "logo": item.get("logo"),
-        "type": tipo_app, 
-        "year": item.get("ano"), 
-        "slug": _slugify(item.get("titulo") or "", item.get("ano")), 
-        "titulo": item.get("titulo"), 
-        "capa": item.get("capa"), 
-        "tipo": t, 
-        "ano": item.get("ano")
-    }
+    return {"id": str(item.get("id")), "title": item.get("titulo") or "", "poster": item.get("capa"), "logo": item.get("logo"), "type": tipo_app, "year": item.get("ano"), "slug": _slugify(item.get("titulo") or "", item.get("ano")), "titulo": item.get("titulo"), "capa": item.get("capa"), "tipo": t, "ano": item.get("ano"), "added_by_name": item.get("added_by_name"), "added_by_uid": item.get("added_by_uid")}
 
 @app.on_event("startup")
 async def startup():
@@ -570,7 +557,6 @@ def registrar(payload: RegistrarPayload, db: Session = Depends(get_db)):
         if not plano_free:
             raise HTTPException(500, "Erro ao configurar os planos no banco.")
 
-    # ALTERAÇÃO AQUI: 2 dias de teste
     cliente = Cliente(nome=payload.nome, email=payload.email.lower(), senha_hash=hash_senha(payload.senha), empresa=payload.empresa, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=2))
     db.add(cliente); db.commit(); db.refresh(cliente)
     raw, h, prefixo = gerar_chave()
@@ -631,8 +617,38 @@ def checkout(payload: AssinarPayload, cliente: Cliente = Depends(get_cliente_ses
     plano = db.query(Plano).filter_by(slug=payload.plano).first()
     if not plano: raise HTTPException(404, "Plano não encontrado.")
     if plano.slug == "free": raise HTTPException(400, "Plano free é automático.")
-    try: return pagamentos.criar_checkout(cliente, plano)
-    except Exception as e: raise HTTPException(500, f"Erro: {e}")
+    try: 
+        return pagamentos.criar_pix(cliente, plano)
+    except Exception as e: 
+        raise HTTPException(500, f"Erro: {e}")
+
+@app.post("/webhooks/mercadopago")
+async def webhook_mercadopago(request: Request):
+    body = await request.body()
+    try:
+        data = validar_webhook(request, body)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(400, f"Erro no webhook: {e}")
+
+    if data.get("type") == "payment" and data.get("data", {}).get("id"):
+        payment_id = data["data"]["id"]
+        processar_pagamento(str(payment_id))
+
+    return {"ok": True}
+
+@app.post("/webhooks/stripe")
+async def webhook_stripe(request: Request):
+    if not pagamentos.stripe: raise HTTPException(503, "Stripe não configurado.")
+    import stripe as st
+    payload = await request.body(); sig = request.headers.get("stripe-signature")
+    try: event = st.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
+    except Exception as e: raise HTTPException(400, f"Assinatura inválida: {e}")
+    if event["type"] == "checkout.session.completed":
+        s = event["data"]["object"]; cid = int(s.get("metadata", {}).get("cliente_id", 0)); slug = s.get("metadata", {}).get("plano_slug", ""); valor = (s.get("amount_total") or 0) / 100.0
+        if cid and slug: pagamentos.ativar_plano_pago(cid, slug, "stripe", s.get("id"), valor)
+    return {"ok": True}
 
 @app.get("/v1/billing/invoices")
 def listar_faturas(cliente: Cliente = Depends(get_cliente_sessao), db: Session = Depends(get_db)):
@@ -647,41 +663,6 @@ def cancelar(cliente: Cliente = Depends(get_cliente_sessao), db: Session = Depen
 def uso_detalhado(cliente: Cliente = Depends(get_cliente_sessao), db: Session = Depends(get_db)):
     uso = db.query(UsoMensal).filter_by(cliente_id=cliente.id, ano_mes=ano_mes_atual()).first()
     return {"req_total": uso.req_total if uso else 0, "req_bloqueadas": uso.req_bloqueadas if uso else 0, "serie_7dias": [{"dia": (datetime.utcnow() - timedelta(days=i)).strftime("%d/%m"), "valor": 0} for i in range(6, -1, -1)], "top_endpoints": []}
-
-@app.post("/webhooks/stripe")
-async def webhook_stripe(request: Request):
-    if not pagamentos.stripe: raise HTTPException(503, "Stripe não configurado.")
-    import stripe as st
-    payload = await request.body(); sig = request.headers.get("stripe-signature")
-    try: event = st.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-    except Exception as e: raise HTTPException(400, f"Assinatura inválida: {e}")
-    if event["type"] == "checkout.session.completed":
-        s = event["data"]["object"]; cid = int(s.get("metadata", {}).get("cliente_id", 0)); slug = s.get("metadata", {}).get("plano_slug", ""); valor = (s.get("amount_total") or 0) / 100.0
-        if cid and slug: pagamentos.ativar_plano_pago(cid, slug, "stripe", s.get("id"), valor)
-    return {"ok": True}
-
-@app.post("/webhooks/mercadopago")
-async def webhook_mp(request: Request):
-    if not pagamentos._mp_sdk: raise HTTPException(503, "Mercado Pago não configurado.")
-    body = await request.json()
-    try:
-        if body.get("type") == "preapproval":
-            preapproval_id = body.get("data", {}).get("id")
-            if not preapproval_id: return {"ok": True}
-            r = pagamentos._mp_sdk.preapproval().get(preapproval_id); resp = r.get("response", {}); status = resp.get("status")
-            if status == "authorized":
-                db = SessionLocal()
-                try:
-                    c = db.query(Cliente).filter_by(mp_id=preapproval_id).first()
-                    if c:
-                        plano_slug = "starter"; valor = float(resp.get("auto_recurring", {}).get("transaction_amount") or 0)
-                        if valor >= 499: plano_slug = "enterprise"
-                        elif valor >= 149: plano_slug = "pro"
-                        elif valor >= 49: plano_slug = "starter"
-                        pagamentos.ativar_plano_pago(c.id, plano_slug, "mercadopago", preapproval_id, valor)
-                finally: db.close()
-    except Exception as e: print(f"[MP Webhook] Erro: {e}")
-    return {"ok": True}
 
 @app.get("/v1/status")
 def v1_status(auth = Depends(verificar_api_key)): return {"stats": _stats(), "ok": True}
@@ -882,7 +863,6 @@ def login_google(payload: GoogleLoginPayload, db: Session = Depends(get_db)):
             seed_planos()
             plano_free = db.query(Plano).filter_by(slug="free").first()
             
-        # ALTERAÇÃO AQUI: 2 dias de teste para o Google também
         c = Cliente(nome=nome, email=email.lower(), senha_hash=None, plano_id=plano_free.id, ativo=True, plano_expira_em=datetime.utcnow() + timedelta(days=2))
         db.add(c); db.commit(); db.refresh(c)
         raw, h, prefixo = gerar_chave()
