@@ -10,7 +10,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
   const firebaseConfig = {
     apiKey: "AIzaSyAvTri3e0L1r5Z60RexRLwdAD9GKD7aYas",
     authDomain: "apivenuscine.firebaseapp.com",
@@ -146,29 +145,23 @@ const Api = {
     adminFilmes: (q='', page=1, size=30) => Api.get(`/admin/filmes?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
     adminSeries: (q='', page=1, size=30) => Api.get(`/admin/series?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
     adminCanais: (q='', page=1, size=30) => Api.get(`/admin/canais?q=${encodeURIComponent(q)}&page=${page}&size=${size}`),
+    adminItem: (tipo, id) => Api.get(`/admin/item/${tipo}/${id}`),
     deletarItem: (tipo, id) => Api.del(`/admin/item/${tipo}/${id}`),
     notifEnviar(payload) { return this.post('/admin/notificacoes/enviar', payload); },
     pedidos() { return this.get('/admin/notificacoes/pedidos'); },
     concluirPedido(id, payload) { return this.post(`/admin/notificacoes/pedidos/${id}/concluir`, payload); },
-    iptvBuscar: (q, tipo, provId) => Api.get(`/admin/iptv/buscar?q=${encodeURIComponent(q)}&tipo=${tipo}&provedor_id=${provId}`),
-    iptvAdicionarLote: (items) => Api.post('/admin/iptv/adicionar-lote', { items }),
-    iptvImportarLoteBg: (tipo, qtd, provId) => Api.post(`/admin/iptv/importar-lote-bg?tipo=${tipo}&quantidade=${qtd}&provedor_id=${provId}`),
-    iptvImportarLoteBgStatus: () => Api.get('/admin/iptv/importar-lote-bg/status'),
-    getProvedores() { return this.get('/admin/provedores'); },
-    criarProvedor(p) { return this.post('/admin/provedores', p); },
-    deletarProvedor(id) { return this.del(`/admin/provedores/${id}`); },
     usuarios() { return this.get('/admin/notificacoes/usuarios'); },
     bloquearUsuario(uid, status) { return this.post(`/admin/notificacoes/usuarios/${uid}/bloquear?bloqueado=${status}`); },
     deletarUsuario(uid) { return this.del(`/admin/notificacoes/usuarios/${uid}`); },
     
-    // Rotas de Clientes API
     adminClientes() { return this.get('/admin/clientes'); },
     adminCriarCliente(p) { return this.post('/admin/clientes', p); },
     adminAtualizarCliente(id, p) { return this.req('PUT', `/admin/clientes/${id}`, p); },
     adminDeletarCliente(id) { return this.del(`/admin/clientes/${id}`); },
     adminResetSenha(id, senha) { return this.post(`/admin/clientes/${id}/resetar-senha`, { nova_senha: senha }); },
     adminNovaChave(id) { return this.post(`/admin/clientes/${id}/nova-chave`, { nome: 'admin' }); },
-    adminFaturas() { return this.get('/admin/faturas'); }
+    adminFaturas() { return this.get('/admin/faturas'); },
+    adminMarcarPaga(id) { return this.post(`/admin/faturas/${id}/marcar-paga`); }
 };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -329,7 +322,7 @@ const Views = {
                             </select>
                         </div>
                         <div><label class="text-xs text-gray-400 block mb-1">Adicionar Dias de Validade</label>
-                            <input id="edit-dias" type="number" class="input-dark" placeholder="Ex: 30 (deixe vazio para não alterar)" min="1">
+                            <input id="edit-dias" type="number" class="input-dark" placeholder="Ex: 30 (0 = bloquear, -1 = ilimitado)">
                         </div>
                         <div><label class="text-xs text-gray-400 block mb-1">Resetar Senha</label>
                             <input id="edit-senha" type="text" class="input-dark" placeholder="Nova senha (opcional)">
@@ -350,7 +343,7 @@ const Views = {
             const dias = diasEl ? parseInt(diasEl) : null;
             const senha = document.getElementById('edit-senha').value;
             const payload = { plano };
-            if (dias) payload.dias = dias;
+            if (dias !== null) payload.dias = dias;
             await Api.adminAtualizarCliente(id, payload);
             if (senha) await Api.adminResetSenha(id, senha);
             Toast.show('Cliente atualizado com sucesso!', 'success');
@@ -394,7 +387,7 @@ const Views = {
                     <table class="w-full text-sm">
                         <thead class="bg-[#0f0f0f] border-b border-[#262626] text-xs text-gray-400 uppercase"><tr>
                             <th class="text-left px-4 py-3">Data</th><th class="text-left px-4 py-3">Cliente</th>
-                            <th class="text-left px-4 py-3">Valor</th><th class="text-left px-4 py-3">Status</th></tr></thead>
+                            <th class="text-left px-4 py-3">Valor</th><th class="text-left px-4 py-3">Status</th><th class="text-center px-4 py-3">Ação</th></tr></thead>
                         <tbody>
                             ${itens.map(f => `
                                 <tr class="border-b border-[#1f1f1f]">
@@ -402,6 +395,7 @@ const Views = {
                                     <td class="px-4 py-3"><div class="text-xs font-bold">${esc(f.cliente)}</div><div class="text-[10px] text-gray-500">${esc(f.cliente_email)}</div></td>
                                     <td class="px-4 py-3 font-bold">R$ ${(f.valor || 0).toFixed(2)}</td>
                                     <td class="px-4 py-3"><span class="text-[10px] px-2 py-1 rounded ${f.status === 'paga' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}">${esc((f.status || '').toUpperCase())}</span></td>
+                                    <td class="px-4 py-3 text-center">${f.status !== 'paga' ? `<button onclick="Views.marcarPaga(${f.id})" class="h-7 px-2 rounded bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white text-[10px] font-bold">Marcar paga</button>` : '<i class="fa-solid fa-check text-green-400"></i>'}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -409,6 +403,10 @@ const Views = {
                 </div>
             `}
         `;
+    },
+
+    async marcarPaga(id) {
+        try { await Api.adminMarcarPaga(id); Toast.show('Fatura marcada como paga', 'success'); Router.render(); } catch (e) { Toast.show('Erro: ' + e.message, 'error'); }
     },
 
     async pedidos(c) {
@@ -619,13 +617,8 @@ const Views = {
     _page(tipo, page) { window._listState[tipo].page = page; Router.render(); },
     async deletar(tipo, id) { if (!confirm('Excluir este item?')) return; try { await Api.deletarItem(tipo, id); Router.render(); } catch (e) { Toast.show(e.message, 'error'); } },
 
-    async notificacoes(c) {
-        c.innerHTML = `<div class="text-center py-20 text-gray-500 font-bold">Em construção</div>`;
-    },
-    
-    async slider(c) {
-        c.innerHTML = `<div class="text-center py-20 text-gray-500 font-bold">Em construção</div>`;
-    },
+    async notificacoes(c) { c.innerHTML = `<div class="text-center py-20 text-gray-500 font-bold">Em construção</div>`; },
+    async slider(c) { c.innerHTML = `<div class="text-center py-20 text-gray-500 font-bold">Em construção</div>`; },
 
     fecharModal() { document.getElementById('modal-root').innerHTML = ''; },
     statCard(label, value, icon, color) {
