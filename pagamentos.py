@@ -1,188 +1,191 @@
-"""
-Integração com gateways de pagamento.
-- Mercado Pago (PIX + cartão — BR)
-- Stripe (internacional)
-"""
+import hmac
+import hashlib
+import json
 from datetime import datetime, timedelta
+from typing import Optional
+
+import httpx
+from fastapi import Request, HTTPException
 
 from config import (
-    MP_ACCESS_TOKEN, MP_ENABLED,
-    STRIPE_SECRET, STRIPE_ENABLED,
-    PUBLIC_PANEL_URL,
+    MP_ACCESS_TOKEN, MP_ENABLED, MP_WEBHOOK_SECRET,
+    PUBLIC_PANEL_URL
 )
 from db import SessionLocal
 from billing import Cliente, Plano, Fatura
 
-# Importações condicionais — não quebra se não configurado
-try:
-    if MP_ENABLED:
-        import mercadopago
-        _mp_sdk = mercadopago.SDK(MP_ACCESS_TOKEN)
-    else:
-        _mp_sdk = None
-except Exception as e:
-    print(f"[Pagamentos] Mercado Pago indisponível: {e}")
-    _mp_sdk = None
-
-try:
-    if STRIPE_ENABLED:
-        import stripe
-        stripe.api_key = STRIPE_SECRET
-    else:
-        stripe = None
-except Exception as e:
-    print(f"[Pagamentos] Stripe indisponível: {e}")
-    stripe = None
+MP_BASE = "https://api.mercadopago.com"
 
 
-# ==========================================
-# MERCADO PAGO — Preapproval (assinatura recorrente)
-# ==========================================
-def criar_checkout_mp(cliente: Cliente, plano: Plano) -> dict | None:
-    if not _mp_sdk:
-        return None
-    try:
-        result = _mp_sdk.preapproval().create({
-            "reason": f"Vênus API - Plano {plano.nome}",
-            "auto_recurring": {
-                "frequency": 1,
-                "frequency_type": "months",
-                "transaction_amount": float(plano.preco_mensal),
-                "currency_id": "BRL",
-            },
-            "back_url": f"{PUBLIC_PANEL_URL}/?status=sucesso",
-            "payer_email": cliente.email,
-            "status": "pending",
-        })
-        resp = result.get("response", {})
-        init_point = resp.get("init_point") or resp.get("sandbox_init_point")
-        preapproval_id = resp.get("id")
+def criar_pix(cliente: Cliente, plano: Plano) -> dict:
+    """Cria uma cobrança PIX via nova API de Orders e retorna o QR Code."""
+    if not MP_ENABLED:
+        raise RuntimeError("Mercado Pago não configurado no servidor.")
 
-        # Salva o ID no cliente
-        if preapproval_id:
-            db = SessionLocal()
-            try:
-                c = db.query(Cliente).get(cliente.id)
-                if c:
-                    c.mp_id = preapproval_id
-                    db.commit()
-            finally:
-                db.close()
-
-        return {"url": init_point, "gateway": "mercadopago", "id": preapproval_id}
-    except Exception as e:
-        print(f"[MP] Erro ao criar checkout: {e}")
-        return None
-
-
-# ==========================================
-# STRIPE — Checkout Session (subscription)
-# ==========================================
-def criar_checkout_stripe(cliente: Cliente, plano: Plano) -> dict | None:
-    if not stripe:
-        return None
-    try:
-        # Cria/reusa customer
-        if not cliente.stripe_id:
-            cust = stripe.Customer.create(
-                email=cliente.email,
-                name=cliente.nome,
-                metadata={"cliente_id": cliente.id},
-            )
-            db = SessionLocal()
-            try:
-                c = db.query(Cliente).get(cliente.id)
-                if c:
-                    c.stripe_id = cust.id
-                    db.commit()
-            finally:
-                db.close()
-            cliente.stripe_id = cust.id
-
-        session = stripe.checkout.Session.create(
-            mode="subscription",
-            customer=cliente.stripe_id,
-            line_items=[{
-                "price_data": {
-                    "currency": "brl",
-                    "product_data": {"name": f"Vênus API - Plano {plano.nome}"},
-                    "unit_amount": int(plano.preco_mensal * 100),
-                    "recurring": {"interval": "month"},
-                },
-                "quantity": 1,
-            }],
-            success_url=f"{PUBLIC_PANEL_URL}/?status=sucesso",
-            cancel_url=f"{PUBLIC_PANEL_URL}/?status=cancelado",
-            metadata={"cliente_id": cliente.id, "plano_slug": plano.slug},
-        )
-        return {"url": session.url, "gateway": "stripe", "id": session.id}
-    except Exception as e:
-        print(f"[Stripe] Erro ao criar checkout: {e}")
-        return None
-
-
-def criar_checkout(cliente: Cliente, plano: Plano) -> dict:
-    """Tenta MP primeiro, senão Stripe."""
-    if MP_ENABLED:
-        r = criar_checkout_mp(cliente, plano)
-        if r:
-            return r
-    if STRIPE_ENABLED:
-        r = criar_checkout_stripe(cliente, plano)
-        if r:
-            return r
-    raise RuntimeError(
-        "Nenhum gateway configurado. Configure MP_ACCESS_TOKEN ou STRIPE_SECRET no .env."
-    )
-
-
-# ==========================================
-# Ativação de plano pago (chamada pelos webhooks)
-# ==========================================
-def ativar_plano_pago(cliente_id: int, plano_slug: str, gateway: str,
-                      gateway_id: str | None, valor: float) -> None:
+    # Cria a fatura pendente no banco
     db = SessionLocal()
     try:
-        cliente = db.query(Cliente).get(cliente_id)
-        if not cliente:
-            print(f"[Pagamentos] Cliente {cliente_id} não encontrado.")
-            return
-
-        plano = db.query(Plano).filter_by(slug=plano_slug).first()
-        if not plano:
-            print(f"[Pagamentos] Plano '{plano_slug}' não existe.")
-            return
-
-        agora = datetime.utcnow()
-        base = cliente.plano_expira_em if (cliente.plano_expira_em and cliente.plano_expira_em > agora) else agora
-        cliente.plano_id = plano.id
-        cliente.plano_expira_em = base + timedelta(days=30)
-        cliente.ativo = True
-
         fatura = Fatura(
-            cliente_id=cliente_id,
-            valor=valor,
-            status="paga",
-            gateway=gateway,
-            gateway_id=gateway_id,
-            periodo=cliente.plano_expira_em.strftime("%Y-%m"),
-            paga_em=agora,
+            cliente_id=cliente.id,
+            valor=plano.preco_mensal,
+            status="pendente",
+            gateway="mercadopago",
+            periodo=datetime.utcnow().strftime("%Y-%m"),
         )
         db.add(fatura)
         db.commit()
+        db.refresh(fatura)
 
-        print(f"[Pagamentos] ✓ Plano {plano_slug} ativado para cliente {cliente_id} "
-              f"até {cliente.plano_expira_em.date()}")
+        headers = {
+            "Authorization": f"Bearer {MP_ACCESS_TOKEN}",
+            "Content-Type": "application/json",
+            "X-Idempotency-Key": str(fatura.id)  # Evita duplicar a cobrança
+        }
+
+        # Nova API de Orders do Mercado Pago
+        payload = {
+            "type": "online",
+            "total_amount": str(plano.preco_mensal),
+            "description": f"Assinatura Vênus API - Plano {plano.nome}",
+            "external_reference": str(fatura.id),
+            "expiration_time": "PT30M",
+            "config": {
+                "qr": {
+                    "mode": "static"
+                }
+            },
+            "transactions": {
+                "payments": [
+                    {
+                        "amount": str(plano.preco_mensal),
+                        "payment_method": {
+                            "id": "pix",
+                            "type": "bank_transfer"
+                        }
+                    }
+                ]
+            },
+            "payer": {
+                "email": cliente.email,
+                "first_name": cliente.nome.split(" ")[0],
+                "last_name": " ".join(cliente.nome.split(" ")[1:]) or "Silva",
+            },
+            "notification_url": f"{PUBLIC_PANEL_URL}/webhooks/mercadopago"
+        }
+
+        # Faz a requisição HTTP direta (mais seguro que o SDK antigo)
+        with httpx.Client(timeout=30) as client:
+            r = client.post(f"{MP_BASE}/v1/orders", headers=headers, json=payload)
+            
+            if r.status_code not in (200, 201):
+                print(f"[MP] Erro ao criar order: {r.status_code} - {r.text}")
+                raise RuntimeError(f"Mercado Pago recusou: {r.text}")
+
+            data = r.json()
+            
+        # Extrai o QR Code da nova resposta
+        order_id = data.get("id")
+        
+        # A nova API pode retornar o QR em locais diferentes dependendo da configuração
+        qr_data = None
+        if "transactions" in data and "payments" in data["transactions"]:
+            for p in data["transactions"]["payments"]:
+                if "payment_method" in p and p["payment_method"].get("qr_code"):
+                    qr_data = p["payment_method"]
+                    break
+        
+        if not qr_data and "config" in data and "qr" in data["config"]:
+            qr_data = data["config"]["qr"]
+
+        if not qr_data or "qr_code" not in qr_data:
+            print(f"[MP] Resposta sem QR Code: {data}")
+            raise RuntimeError("Mercado Pago não retornou o QR Code. Verifique se a conta está ativa.")
+
+        # Salva o ID da order na fatura
+        fatura.gateway_id = str(order_id)
+        db.commit()
+
+        return {
+            "ok": True,
+            "fatura_id": fatura.id,
+            "payment_id": order_id,
+            "qr_code_base64": qr_data.get("qr_code_base64") or qr_data.get("qr_code_base64_image"),
+            "qr_code_copia_cola": qr_data.get("qr_code") or qr_data.get("qr_code_text"),
+            "valor": plano.preco_mensal,
+        }
     finally:
         db.close()
 
 
-def cancelar_plano(cliente_id: int) -> None:
+def validar_webhook(request: Request, body: bytes) -> dict:
+    """Valida a assinatura do webhook do Mercado Pago."""
+    if not MP_WEBHOOK_SECRET:
+        return json.loads(body) # Fallback se não tiver chave (só pra teste)
+
+    signature = request.headers.get("x-signature")
+    if not signature: raise HTTPException(401, "Assinatura ausente.")
+
+    parts = dict(p.strip().split("=", 1) for p in signature.split(",") if "=" in p)
+    ts = parts.get("ts")
+    v1 = parts.get("v1")
+
+    if not ts or not v1: raise HTTPException(401, "Assinatura mal formatada.")
+
+    data_id = request.query_params.get("data.id", "")
+    manifest = f"id:{data_id};request-id:{request.headers.get('x-request-id', '')};ts:{ts};"
+
+    expected = hmac.new(MP_WEBHOOK_SECRET.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+
+    if not hmac.compare_digest(expected, v1):
+        raise HTTPException(401, "Assinatura inválida.")
+
+    return json.loads(body)
+
+
+def processar_pagamento(payment_id: str) -> bool:
+    """Consulta a order no MP e ativa o plano se aprovado."""
+    if not MP_ENABLED: return False
+
+    headers = {"Authorization": f"Bearer {MP_ACCESS_TOKEN}"}
+    
+    with httpx.Client(timeout=30) as client:
+        # Tenta buscar como Order primeiro
+        r = client.get(f"{MP_BASE}/v1/orders/{payment_id}", headers=headers)
+        
+        # Se não achar order, tenta buscar como Payment (legado)
+        if r.status_code == 404:
+            r = client.get(f"{MP_BASE}/v1/payments/{payment_id}", headers=headers)
+
+        if r.status_code != 200:
+            return False
+
+        data = r.json()
+
+    status = data.get("status")
+    # Na API de orders, o status aprovado pode vir como "processed", "paid" ou "approved"
+    if status not in ("processed", "paid", "approved"):
+        # Se for payment legado, o status é "approved"
+        return False
+
+    external_ref = data.get("external_reference")
+    if not external_ref: return False
+
     db = SessionLocal()
     try:
-        c = db.query(Cliente).get(cliente_id)
-        if c:
-            c.ativo = False
-            db.commit()
+        fatura = db.query(Fatura).get(int(external_ref))
+        if not fatura or fatura.status == "paga": return True
+
+        cliente = db.query(Cliente).get(fatura.cliente_id)
+        plano = db.query(Plano).get(cliente.plano_id)
+
+        agora = datetime.utcnow()
+        base = cliente.plano_expira_em if (cliente.plano_expira_em and cliente.plano_expira_em > agora) else agora
+        cliente.plano_expira_em = base + timedelta(days=30)
+        cliente.ativo = True
+
+        fatura.status = "paga"
+        fatura.paga_em = agora
+        db.commit()
+        return True
     finally:
         db.close()
