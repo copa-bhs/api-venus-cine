@@ -42,18 +42,15 @@ def criar_pix(cliente: Cliente, plano: Plano) -> dict:
             "X-Idempotency-Key": str(fatura.id)  # Evita duplicar a cobrança
         }
 
-        # Nova API de Orders do Mercado Pago
+        # Nova API de Orders do Mercado Pago (formato estrito)
+        # NÃO envie 'notification_url' nem 'config' aqui. 
+        # A URL de notificação é configurada no painel de Webhooks.
         payload = {
             "type": "online",
             "total_amount": str(plano.preco_mensal),
             "description": f"Assinatura Vênus API - Plano {plano.nome}",
             "external_reference": str(fatura.id),
             "expiration_time": "PT30M",
-            "config": {
-                "qr": {
-                    "mode": "static"
-                }
-            },
             "transactions": {
                 "payments": [
                     {
@@ -69,11 +66,10 @@ def criar_pix(cliente: Cliente, plano: Plano) -> dict:
                 "email": cliente.email,
                 "first_name": cliente.nome.split(" ")[0],
                 "last_name": " ".join(cliente.nome.split(" ")[1:]) or "Silva",
-            },
-            "notification_url": f"{PUBLIC_PANEL_URL}/webhooks/mercadopago"
+            }
         }
 
-        # Faz a requisição HTTP direta (mais seguro que o SDK antigo)
+        # Faz a requisição HTTP direta
         with httpx.Client(timeout=30) as client:
             r = client.post(f"{MP_BASE}/v1/orders", headers=headers, json=payload)
             
@@ -86,7 +82,7 @@ def criar_pix(cliente: Cliente, plano: Plano) -> dict:
         # Extrai o QR Code da nova resposta
         order_id = data.get("id")
         
-        # A nova API pode retornar o QR em locais diferentes dependendo da configuração
+        # A nova API retorna o QR Code dentro de transactions.payments
         qr_data = None
         if "transactions" in data and "payments" in data["transactions"]:
             for p in data["transactions"]["payments"]:
@@ -94,9 +90,6 @@ def criar_pix(cliente: Cliente, plano: Plano) -> dict:
                     qr_data = p["payment_method"]
                     break
         
-        if not qr_data and "config" in data and "qr" in data["config"]:
-            qr_data = data["config"]["qr"]
-
         if not qr_data or "qr_code" not in qr_data:
             print(f"[MP] Resposta sem QR Code: {data}")
             raise RuntimeError("Mercado Pago não retornou o QR Code. Verifique se a conta está ativa.")
@@ -149,12 +142,8 @@ def processar_pagamento(payment_id: str) -> bool:
     headers = {"Authorization": f"Bearer {MP_ACCESS_TOKEN}"}
     
     with httpx.Client(timeout=30) as client:
-        # Tenta buscar como Order primeiro
+        # Busca a order pelo ID
         r = client.get(f"{MP_BASE}/v1/orders/{payment_id}", headers=headers)
-        
-        # Se não achar order, tenta buscar como Payment (legado)
-        if r.status_code == 404:
-            r = client.get(f"{MP_BASE}/v1/payments/{payment_id}", headers=headers)
 
         if r.status_code != 200:
             return False
@@ -164,7 +153,6 @@ def processar_pagamento(payment_id: str) -> bool:
     status = data.get("status")
     # Na API de orders, o status aprovado pode vir como "processed", "paid" ou "approved"
     if status not in ("processed", "paid", "approved"):
-        # Se for payment legado, o status é "approved"
         return False
 
     external_ref = data.get("external_reference")
