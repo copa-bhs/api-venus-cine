@@ -38,6 +38,12 @@ app = FastAPI(title="IPTV Organizer Pro · Multi-Provedor", version="14.0.0")
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"], expose_headers=["*"])
 app.include_router(notificacoes_router)
+
+# ==========================================================
+# MONTAGEM DE ARQUIVOS ESTÁTICOS (SPA)
+# ==========================================================
+# Monta a pasta 'public' para servir o HTML, CSS e JS da SPA
+app.mount("/static", StaticFiles(directory=BASE_DIR / "public"), name="public")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 _FILMES, _SERIES, _CANAIS = [], [], []
@@ -101,9 +107,12 @@ async def websocket_endpoint(ws: WebSocket):
             if data == "ping": await ws.send_text("pong")
     except: await manager.disconnect(ws)
 
+# ==========================================================
+# ROTA RAIZ (Serve a SPA)
+# ==========================================================
 @app.get("/")
 def root():
-    p = BASE_DIR / "painel.html"
+    p = BASE_DIR / "public" / "index.html"
     return FileResponse(p) if p.exists() else {"service": "Vênus API"}
 
 @app.get("/admin")
