@@ -99,19 +99,41 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     if not url or not url.strip(): raise HTTPException(404, "Item sem URL.")
 
     if request.method == "OPTIONS":
-        return StreamingResponse(iter([]), status_code=200, headers={"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS", "Access-Control-Allow-Headers": "*", "Access-Control-Max-Age": "3600"})
+        return StreamingResponse(
+            iter([]), 
+            status_code=200, 
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Max-Age": "3600",
+            }
+        )
 
     client_ip = request.client.host if request.client else "unknown"
     if _active_total >= PROXY_MAX_CONCURRENT: raise HTTPException(503, "Servidor no limite.")
     if _active_by_ip.get(client_ip, 0) >= PROXY_MAX_PER_IP: raise HTTPException(429, "Limite por IP.")
 
     headers = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    
+    # REPASSA O RANGE: Isso faz o vídeo abrir na hora (sem baixar tudo)
     if "range" in request.headers: headers["Range"] = request.headers["range"]
     if "if-modified-since" in request.headers: headers["If-Modified-Since"] = request.headers["if-modified-since"]
 
-    client = httpx.AsyncClient(timeout=httpx.Timeout(connect=PROXY_CONNECT_TIMEOUT, read=PROXY_READ_TIMEOUT, write=PROXY_READ_TIMEOUT, pool=None), limits=httpx.Limits(max_connections=PROXY_MAX_CONCURRENT + 50, max_keepalive_connections=PROXY_MAX_CONCURRENT), follow_redirects=True)
+    # O timeout de leitura foi aumentado para 600s no config.py
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(
+            connect=PROXY_CONNECT_TIMEOUT, 
+            read=PROXY_READ_TIMEOUT, 
+            write=PROXY_READ_TIMEOUT, 
+            pool=None
+        ), 
+        limits=httpx.Limits(max_connections=PROXY_MAX_CONCURRENT + 50, max_keepalive_connections=PROXY_MAX_CONCURRENT), 
+        follow_redirects=True
+    )
 
-    try: upstream = await client.send(client.build_request("GET", url, headers=headers), stream=True)
+    try: 
+        upstream = await client.send(client.build_request("GET", url, headers=headers), stream=True)
     except httpx.RequestError as e:
         await client.aclose(); raise HTTPException(502, f"Erro: {e}")
 
@@ -126,8 +148,11 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     async def _streamer():
         global _active_total
         try:
-            async for chunk in upstream.aiter_bytes(PROXY_CHUNK_SIZE): yield chunk
-        except: pass
+            # Envia os pedaços (chunks) na hora que chegam (Streaming puro)
+            async for chunk in upstream.aiter_bytes(PROXY_CHUNK_SIZE): 
+                yield chunk
+        except: 
+            pass
         finally:
             _active_total = max(0, _active_total - 1)
             if client_ip in _active_by_ip:
@@ -142,6 +167,7 @@ async def stream_proxy(url: str, request: Request) -> StreamingResponse:
     for h in ("content-type", "content-length", "content-range", "accept-ranges", "last-modified", "etag"):
         if h in upstream.headers: resp_headers[h] = upstream.headers[h]
     
+    # Cabeçalhos essenciais para o app de TV e navegador aceitar o vídeo
     resp_headers["accept-ranges"] = "bytes"
     resp_headers["cache-control"] = "no-store"
     resp_headers["Access-Control-Allow-Origin"] = "*"
